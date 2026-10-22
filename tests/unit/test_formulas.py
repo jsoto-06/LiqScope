@@ -125,18 +125,21 @@ def test_hand_calculated_exact_tier_formula() -> None:
       P_entry = 60,000.0 USD
       Apalancamiento = 10.0x (1/L = 0.10)
       Cantidad Q = 2.0 BTC
-      Nocional = 120,000 USDT -> Tier 2 (MMR = 0.005, cum = 50.0 USDT)
+      Nocional = 120,000 USDT -> Tier 2 (MMR supuesto = 0.005, cum supuesto = 50.0 USDT)
     Cálculo exacto:
       Numerador = 60000 * (1 - 0.10) + (50 / 2) = 54000 + 25 = 54025.0
       Denominador = 1 - 0.005 = 0.995
       P_liq = 54025 / 0.995 = 54,296.4824 USD
     """
+    assumed_mmr = 0.005
+    assumed_cum = 50.0
+
     liq_exact_long = calculate_exact_tier_liquidation_price(
         entry_price=60_000.0,
         leverage=10.0,
         side=PositionSide.LONG,
-        maintenance_margin_rate=0.005,
-        cum_maintenance_amount=50.0,
+        maintenance_margin_rate=assumed_mmr,
+        cum_maintenance_amount=assumed_cum,
         quantity=2.0,
     )
     assert liq_exact_long == 54_296.4824
@@ -146,8 +149,8 @@ def test_hand_calculated_exact_tier_formula() -> None:
         entry_price=60_000.0,
         leverage=10.0,
         side=PositionSide.SHORT,
-        maintenance_margin_rate=0.005,
-        cum_maintenance_amount=50.0,
+        maintenance_margin_rate=assumed_mmr,
+        cum_maintenance_amount=assumed_cum,
         quantity=2.0,
     )
     # Numerador: 60000 * (1 + 0.10) - (50 / 2) = 66000 - 25 = 65975.0

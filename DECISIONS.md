@@ -100,3 +100,17 @@ Este documento registra cada decisión técnica clave, su contexto, alternativas
   1. **REST Rate Limits:** Fijar el presupuesto de peticiones respetando el límite por defecto de **2400 request weight/minuto por IP** (`X-MBX-USED-WEIGHT-1M`).
   2. **Stream `forceOrder`:** El ritmo de actualización oficial de Binance es de **1000 ms** y solo entrega la orden forzada de mayor tamaño del intervalo. Por consiguiente, `forceOrder` no satura la red pero representa un límite inferior muestreado.
   3. **Stream `aggTrade`:** Se procesa como flujo de alta frecuencia (push continuo en tiempo real).
+
+---
+
+## ADR-010: Sustitución de `gitleaks-action` por Binario Standalone en CI
+- **Fecha:** 2026-10-22
+- **Estado:** Aceptado
+- **Contexto:** En el Run #1 de GitHub Actions, la acción oficial `gitleaks/gitleaks-action@v2` falló con código de salida 1 debido a que intentó construir un rango de revisión `git log --first-parent <root_commit>^..<head_commit>`. Al tratarse del commit raíz inicial del repositorio, este no posee commit padre (`<root_commit>^`), lo que provocó el error fatal de git: `ambiguous argument: unknown revision or path`.
+- **Decisión:**
+  1. Descargar e instalar directamente el binario compilado oficial de Gitleaks para Linux x64 en el runner de GitHub Actions (`/usr/local/bin/gitleaks`).
+  2. Ejecutar la detección apuntando directamente al árbol de trabajo: `gitleaks detect --source=. --verbose --redact`.
+- **Consecuencias:**
+  1. Elimina la fragilidad frente a sintaxis de rangos de commits sin padre en repositorios nuevos o rebased.
+  2. Escaneo más rápido (~5 segundos) sin sobrecarga de wrappers de Node.js.
+  3. Verificado con éxito total en los runs #2 y #3 de GitHub Actions.
