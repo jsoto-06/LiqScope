@@ -1,0 +1,41 @@
+{
+  "_synthetic": true,
+  "_notice": "SYNTHETIC DEMO DATA - Generated for testing and offline development only. Does NOT represent real market orders or actual accounts.",
+  "_generated_at": "2026-10-22T12:00:00Z",
+  "data": [
+    {
+      "e": "forceOrder",
+      "E": 1729600010000,
+      "o": {
+        "s": "BTCUSDT",
+        "S": "SELL",
+        "o": "LIMIT",
+        "f": "IOC",
+        "q": "0.750",
+        "p": "68100.00",
+        "ap": "68080.00",
+        "X": "FILLED",
+        "l": "0.750",
+        "z": "0.750",
+        "T": 1729600010000
+      }
+    },
+    {
+      "e": "forceOrder",
+      "E": 1729600020000,
+      "o": {
+        "s": "BTCUSDT",
+        "S": "BUY",
+        "o": "LIMIT",
+        "f": "IOC",
+        "q": "1.420",
+        "p": "68950.00",
+        "ap": "68960.00",
+        "X": "FILLED",
+        "l": "1.420",
+        "z": "1.420",
+        "T": 1729600020000
+      }
+    }
+  ]
+}

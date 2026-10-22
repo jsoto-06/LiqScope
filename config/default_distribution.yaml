@@ -1,0 +1,27 @@
+# LiqScope - Distribución configurable de apalancamientos típicos para CEX
+# Los pesos representan la proporción estimada de Open Interest asignada a cada nivel.
+# La suma de los pesos debe ser igual a 1.0.
+
+description: "Distribución típica ponderada de apalancamiento para estimación en CEX (Binance, Bybit)"
+symbol_defaults:
+  BTCUSDT:
+    leverage_distribution:
+      5: 0.15
+      10: 0.25
+      25: 0.30
+      50: 0.20
+      100: 0.10
+  ETHUSDT:
+    leverage_distribution:
+      5: 0.15
+      10: 0.25
+      25: 0.30
+      50: 0.20
+      100: 0.10
+  DEFAULT:
+    leverage_distribution:
+      5: 0.15
+      10: 0.25
+      25: 0.30
+      50: 0.20
+      100: 0.10

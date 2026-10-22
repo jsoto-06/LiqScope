@@ -1,0 +1,10 @@
+{
+  "_synthetic": true,
+  "_notice": "SYNTHETIC DEMO DATA - Generated for testing and offline development only. Does NOT represent real market orders or actual accounts.",
+  "_generated_at": "2026-10-22T12:00:00Z",
+  "data": {
+    "symbol": "BTCUSDT",
+    "openInterest": "32450.850",
+    "time": 1729600000000
+  }
+}
