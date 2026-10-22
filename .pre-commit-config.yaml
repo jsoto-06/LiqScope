@@ -28,3 +28,4 @@ repos:
           - pydantic>=2.8.0
           - pydantic-settings>=2.4.0
           - types-PyYAML>=6.0.12
+          - pytest>=8.0.0

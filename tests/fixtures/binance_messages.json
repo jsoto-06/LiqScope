@@ -1,0 +1,72 @@
+{
+  "valid_agg_trade_buyer_maker": {
+    "e": "aggTrade",
+    "E": 1729601000000,
+    "s": "BTCUSDT",
+    "a": 12345678,
+    "p": "68520.10",
+    "q": "0.450",
+    "f": 9876540,
+    "l": 9876542,
+    "T": 1729601000000,
+    "m": true
+  },
+  "valid_agg_trade_buyer_taker": {
+    "e": "aggTrade",
+    "E": 1729601001000,
+    "s": "BTCUSDT",
+    "a": 12345679,
+    "p": "68525.00",
+    "q": "1.250",
+    "f": 9876543,
+    "l": 9876545,
+    "T": 1729601001000,
+    "m": false
+  },
+  "valid_force_order_sell": {
+    "e": "forceOrder",
+    "E": 1729601010000,
+    "o": {
+      "s": "BTCUSDT",
+      "S": "SELL",
+      "o": "LIMIT",
+      "f": "IOC",
+      "q": "2.500",
+      "p": "68100.00",
+      "ap": "68090.00",
+      "X": "FILLED",
+      "l": "2.500",
+      "z": "2.500",
+      "T": 1729601010000
+    }
+  },
+  "valid_force_order_buy": {
+    "e": "forceOrder",
+    "E": 1729601020000,
+    "o": {
+      "s": "BTCUSDT",
+      "S": "BUY",
+      "o": "LIMIT",
+      "f": "IOC",
+      "q": "1.800",
+      "p": "68900.00",
+      "ap": "68910.00",
+      "X": "FILLED",
+      "l": "1.800",
+      "z": "1.800",
+      "T": 1729601020000
+    }
+  },
+  "malformed_missing_fields": {
+    "e": "aggTrade",
+    "s": "BTCUSDT"
+  },
+  "malformed_negative_price": {
+    "e": "aggTrade",
+    "s": "BTCUSDT",
+    "p": "-500.0",
+    "q": "1.0",
+    "T": 1729601000000,
+    "m": false
+  }
+}

@@ -75,3 +75,28 @@ Este documento registra cada decisión técnica clave, su contexto, alternativas
 - **Estado:** Aceptado
 - **Contexto:** Se requiere SQLite para desarrollo rápido y pruebas sin dependencias de servicios externos pesados, pero el sistema debe poder migrar a PostgreSQL o TimescaleDB en entornos productivos.
 - **Decisión:** Diseñar una interfaz abstracta de almacenamiento (`BaseStorageRepository`) que defina métodos asíncronos (`save_snapshot`, `get_latest_snapshot`, `record_liquidation`). El código del motor y de la API solo interactuará con dicha interfaz.
+
+---
+
+## ADR-008: Módulo de Carga Sintética Offline (`demo/loader.py`) y Auditoría de Estructura
+- **Fecha:** 2026-10-22
+- **Estado:** Aceptado
+- **Contexto:** Para desarrollo local, pruebas unitarias y modo demo sin dependencias externas, se requiere leer fixtures sintéticos de forma tipada, segura y controlada.
+- **Decisión:** Implementar `src/liqscope/demo/loader.py` con `DemoDataLoader`:
+  1. Valida en tiempo de carga que cada fixture contenga estrictamente `_synthetic: true` y la advertencia `_notice`. Si falta este flag, lanza una excepción impidiendo su ingestión.
+  2. Expone métodos tipados (`get_binance_trades`, `get_binance_force_orders`, `get_binance_open_interest`, `get_hyperliquid_positions`).
+  3. **Auditoría de archivos:** Se confirma que el árbol de directorios contiene exclusivamente los 28 archivos correspondientes al plan aprobado (documentación, CI, config, fixtures, src/liqscope/ y tests/), sin archivos espurios ni dependencias no autorizadas.
+
+---
+
+## ADR-009: Especificación Oficial de Rate Limits y Streams de Binance Futures
+- **Fecha:** 2026-10-22
+- **Estado:** Aceptado
+- **Contexto:** Es imperativo conocer los límites exactos de la API para configurar limitadores de tasa y colas de ingesta sin riesgo de bloqueos HTTP 429/418.
+- **Fuentes Oficiales:**
+  - [Binance Futures General Info - Rate Limits](https://developers.binance.com/docs/derivatives/usds-margined-futures/general-info#rate-limits)
+  - [Binance Futures WebSocket Streams - Liquidation Order Streams](https://developers.binance.com/docs/derivatives/usds-margined-futures/websocket-market-streams/Liquidation-Order-Streams)
+- **Decisión:**
+  1. **REST Rate Limits:** Fijar el presupuesto de peticiones respetando el límite por defecto de **2400 request weight/minuto por IP** (`X-MBX-USED-WEIGHT-1M`).
+  2. **Stream `forceOrder`:** El ritmo de actualización oficial de Binance es de **1000 ms** y solo entrega la orden forzada de mayor tamaño del intervalo. Por consiguiente, `forceOrder` no satura la red pero representa un límite inferior muestreado.
+  3. **Stream `aggTrade`:** Se procesa como flujo de alta frecuencia (push continuo en tiempo real).

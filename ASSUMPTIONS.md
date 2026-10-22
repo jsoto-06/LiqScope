@@ -14,7 +14,8 @@ El modelo diferencia estrictamente entre dos naturalezas de datos según el exch
    - **Fundamento:** Al ser un exchange perpetuo descentralizado con libro de órdenes on-chain y liquidación programática, el estado del margen, apalancamiento exacto, tamaño y precio de liquidación de las cuentas es público y verificable en el estado del clearinghouse.
 2. **Datos Estimados (`ESTIMATED`):**
    - **Fuentes:** Binance Futures USDT-M y Bybit Linear.
-   - **Fundamento:** Los CEX centralizados no publican los libros de posiciones individuales abiertas por motivos de privacidad comercial. Publican el Open Interest global, el flujo de operaciones (trades) y los eventos forzados de liquidación ejecutados (`forceOrder`). Por tanto, la masa de posiciones vivas por rango de precio se aproxima estadísticamente.
+   - **Fundamento:** Los CEX centralizados no publican los libros de posiciones individuales abiertas por motivos de privacidad comercial. Publican el Open Interest global, el flujo de operaciones (trades) y los eventos forzados de liquidación ejecutados (`forceOrder`).
+   - **Limitación Oficial de `forceOrder` en Binance:** Según la documentación oficial de [Binance Liquidation Order Streams](https://developers.binance.com/docs/derivatives/usds-margined-futures/websocket-market-streams/Liquidation-Order-Streams), el stream se actualiza cada **1000 ms** y entrega únicamente la liquidación **más grande** ocurrida en dicho segundo por símbolo. En consecuencia, el volumen público de `forceOrder` representa un muestreo conservador (límite inferior) del volumen total liquidado en Binance, no el 100 % absoluto. Por tanto, la masa de posiciones vivas por rango de precio se aproxima estadísticamente mediante el modelo del motor.
 
 ---
 

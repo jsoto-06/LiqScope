@@ -3,7 +3,7 @@
 > [!IMPORTANT]
 > **Aviso:** Estimaciones con fines informativos. No es asesoramiento financiero ni señal de trading.
 
-LiqScope es una herramienta analítica de solo lectura y visualización en tiempo real de zonas de liquidación apalancada por nivel de precio para BTC y principales altcoins. 
+LiqScope es una herramienta analítica de solo lectura y visualización en tiempo real de zonas de liquidación apalancada por nivel de precio para BTC y principales altcoins.
 
 **LiqScope:**
 - **NO** ejecuta órdenes.
