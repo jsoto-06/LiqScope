@@ -1,0 +1,8 @@
+{
+  "endpoint": "https://api.bybit.com/v5/market/risk-limit?category=linear&symbol=ETHUSDT",
+  "captured_at": "2026-10-22T14:32:23Z",
+  "symbol": "ETHUSDT",
+  "tier_count": 35,
+  "origin": "OBSERVED",
+  "coverage": "COMPLETE"
+}
