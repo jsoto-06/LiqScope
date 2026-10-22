@@ -94,6 +94,14 @@ class Settings(BaseSettings):
         description="Ruta al archivo YAML de pesos y supuestos de apalancamiento",
     )
 
+    @field_validator("binance_ws_url", "bybit_ws_url")
+    @classmethod
+    def validate_ws_url(cls, v: str) -> str:
+        """Valida que la URL del WebSocket utilice un esquema ws:// o wss:// válido."""
+        if not (v.startswith("wss://") or v.startswith("ws://")):
+            raise ValueError(f"La URL de WebSocket debe iniciar con ws:// o wss://, recibido: {v}")
+        return v
+
     @field_validator("port")
     @classmethod
     def validate_port_range(cls, v: int) -> int:

@@ -1,0 +1,85 @@
+{
+  "official_all_liquidation_roseusdt": {
+    "_official": true,
+    "_url": "https://bybit-exchange.github.io/docs/v5/websocket/public/all-liquidation",
+    "topic": "allLiquidation.ROSEUSDT",
+    "type": "snapshot",
+    "ts": 1739502303204,
+    "data": [
+      {
+        "T": 1739502302929,
+        "s": "ROSEUSDT",
+        "S": "Sell",
+        "v": "20000",
+        "p": "0.04499"
+      }
+    ]
+  },
+  "synthetic_all_liquidation_btcusdt": {
+    "_synthetic": true,
+    "topic": "allLiquidation.BTCUSDT",
+    "type": "snapshot",
+    "ts": 1739502303204,
+    "data": [
+      {
+        "T": 1739502302929,
+        "s": "BTCUSDT",
+        "S": "Buy",
+        "v": "1.5",
+        "p": "65000.5"
+      }
+    ]
+  },
+  "synthetic_all_liquidation_ethusdt": {
+    "_synthetic": true,
+    "topic": "allLiquidation.ETHUSDT",
+    "type": "snapshot",
+    "ts": 1739502303204,
+    "data": [
+      {
+        "T": 1739502302929,
+        "s": "ETHUSDT",
+        "S": "Buy",
+        "v": "10.0",
+        "p": "3200.0"
+      },
+      {
+        "T": 1739502302930,
+        "s": "ETHUSDT",
+        "S": "Sell",
+        "v": "5.0",
+        "p": "3250.0"
+      }
+    ]
+  },
+  "malformed_missing_fields": {
+    "topic": "allLiquidation.BTCUSDT",
+    "type": "snapshot",
+    "ts": 1739502303204,
+    "data": [
+      {
+        "s": "BTCUSDT"
+      }
+    ]
+  },
+  "malformed_invalid_price": {
+    "topic": "allLiquidation.BTCUSDT",
+    "type": "snapshot",
+    "ts": 1739502303204,
+    "data": [
+      {
+        "T": 1739502302929,
+        "s": "BTCUSDT",
+        "S": "Buy",
+        "v": "1.0",
+        "p": "-500.0"
+      }
+    ]
+  },
+  "unrelated_topic": {
+    "topic": "publicTrade.BTCUSDT",
+    "type": "snapshot",
+    "ts": 1739502303204,
+    "data": []
+  }
+}

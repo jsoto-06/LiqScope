@@ -14,10 +14,14 @@ def calculate_budget() -> None:
     log("HYPERLIQUID WEIGHT BUDGET VERIFICATION")
     log("=" * 80)
     log("Official Documentation Sources:")
-    log("  - Rate Limits: https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/rate-limits")
+    log(
+        "  - Rate Limits: https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/rate-limits"
+    )
     log("    Citation: 'REST requests share an aggregated weight limit of 1200 per minute.'")
     log("    Citation: 'The following info requests have weight 2: ... clearinghouseState ...'")
-    log("    Citation: 'All other documented info requests have weight 20.' (applies to metaAndAssetCtxs)")
+    log(
+        "    Citation: 'All other documented info requests have weight 20.' (applies to metaAndAssetCtxs)"
+    )
     log("-" * 80)
 
     rate_limit_per_min = 1200
@@ -44,9 +48,13 @@ def calculate_budget() -> None:
     log("Budget Breakdown:")
     log(f"  Rate Limit per IP:            {rate_limit_per_min} weight / min")
     log(f"  Max Tracked Addresses:        {max_tracked_addresses} wallets")
-    log(f"  Meta poll interval:           {meta_poll_interval_sec:.1f} s ({meta_calls_per_min:.1f} calls/min)")
+    log(
+        f"  Meta poll interval:           {meta_poll_interval_sec:.1f} s ({meta_calls_per_min:.1f} calls/min)"
+    )
     log(f"  Meta weight consumption:      {meta_weight_per_min:.1f} weight / min")
-    log(f"  Wallet poll interval:         {wallet_poll_interval_sec:.1f} s ({wallet_polls_per_min:.1f} calls/min per wallet)")
+    log(
+        f"  Wallet poll interval:         {wallet_poll_interval_sec:.1f} s ({wallet_polls_per_min:.1f} calls/min per wallet)"
+    )
     log(f"  Wallet weight consumption:    {wallet_weight_per_min:.1f} weight / min")
     log(f"  Total Weight Consumption:     {total_weight_per_min:.1f} weight / min")
     log(f"  Budget Utilization:           {consumption_pct:.2f}%")

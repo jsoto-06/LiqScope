@@ -4,7 +4,7 @@ from datetime import UTC, datetime
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from liqscope.models.common import DataOrigin, Exchange, PositionSide
+from liqscope.models.common import DataCoverage, DataOrigin, Exchange, PositionSide
 
 
 class LiquidationEvent(BaseModel):
@@ -17,7 +17,16 @@ class LiquidationEvent(BaseModel):
     side: PositionSide = Field(
         description="Lado de la posición que fue liquidada (LONG o SHORT)",
     )
-    price: float = Field(gt=0, description="Precio de quiebra o ejecución de la orden forzada")
+    price: float | None = Field(
+        default=None,
+        gt=0,
+        description="Precio de ejecución de la orden forzada (si está disponible)",
+    )
+    bankruptcy_price: float | None = Field(
+        default=None,
+        gt=0,
+        description="Precio de bancarrota reportado por el exchange",
+    )
     quantity: float = Field(gt=0, description="Cantidad total de la orden de liquidación")
     filled_quantity: float = Field(
         ge=0,
@@ -32,6 +41,14 @@ class LiquidationEvent(BaseModel):
         description="Marca de tiempo en UTC del evento",
     )
     origin: DataOrigin = Field(
-        default=DataOrigin.ESTIMATED,
-        description="Naturaleza del dato: real (on-chain) o estimado (CEX)",
+        default=DataOrigin.OBSERVED,
+        description="Naturaleza del dato según ADR-011: OBSERVED o MODELED",
+    )
+    coverage: DataCoverage = Field(
+        default=DataCoverage.COMPLETE,
+        description="Cobertura del stream según ADR-011: COMPLETE o SAMPLED",
+    )
+    incomplete: bool = Field(
+        default=False,
+        description="Indica si hubo pérdida de continuidad por desconexión en el stream",
     )

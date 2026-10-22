@@ -1,6 +1,7 @@
 """Paquete de modelos de dominio para LiqScope."""
 
 from liqscope.models.common import (
+    DataCoverage,
     DataOrigin,
     DataSourceType,
     Environment,
@@ -14,6 +15,7 @@ from liqscope.models.liquidation import LiquidationEvent
 from liqscope.models.market import OpenInterestSnapshot, Trade
 
 __all__ = [
+    "DataCoverage",
     "DataOrigin",
     "DataSourceType",
     "Environment",

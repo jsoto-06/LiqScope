@@ -66,9 +66,15 @@ def verify_symbol(symbol: str, out_lines: list[str]) -> bool:
 
         id_curr = t_curr["id"]
         id_next = t_next["id"]
-        log(f"Boundary {i + 1:2d} | Tier {id_curr:2d} -> Tier {id_next:2d} at {boundary:14,.0f} USD:")
-        log(f"  Tier {id_curr:2d}: {boundary:14,.0f} * {mmr_curr:.4f} - {ded_curr:12,.0f} = {margin_curr:14,.2f} USD")
-        log(f"  Tier {id_next:2d}: {boundary:14,.0f} * {mmr_next:.4f} - {ded_next:12,.0f} = {margin_next:14,.2f} USD")
+        log(
+            f"Boundary {i + 1:2d} | Tier {id_curr:2d} -> Tier {id_next:2d} at {boundary:14,.0f} USD:"
+        )
+        log(
+            f"  Tier {id_curr:2d}: {boundary:14,.0f} * {mmr_curr:.4f} - {ded_curr:12,.0f} = {margin_curr:14,.2f} USD"
+        )
+        log(
+            f"  Tier {id_next:2d}: {boundary:14,.0f} * {mmr_next:.4f} - {ded_next:12,.0f} = {margin_next:14,.2f} USD"
+        )
         log(f"  Delta: {delta:.6f} USD -> CONTINUOUS: {status}")
         log("-" * 80)
 

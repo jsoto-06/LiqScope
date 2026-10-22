@@ -28,10 +28,20 @@ class TradeSide(StrEnum):
 
 
 class DataOrigin(StrEnum):
-    """Origen del dato: real (on-chain Hyperliquid) o estimado (CEX)."""
+    """Origen del dato según ADR-011: observado directamente o modelado analíticamente."""
 
+    OBSERVED = "observed"
+    MODELED = "modeled"
     REAL = "real"
     ESTIMATED = "estimated"
+
+
+class DataCoverage(StrEnum):
+    """Cobertura del flujo de datos según ADR-011."""
+
+    COMPLETE = "complete"
+    SAMPLED = "sampled"
+    NA = "na"
 
 
 class DataSourceType(StrEnum):

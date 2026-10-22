@@ -13,7 +13,7 @@ from pydantic import ValidationError
 
 from liqscope.config import Settings, get_settings
 from liqscope.connectors.base import ConnectionStatus, DataSource
-from liqscope.models.common import DataOrigin, Exchange, PositionSide, TradeSide
+from liqscope.models.common import DataCoverage, DataOrigin, Exchange, PositionSide, TradeSide
 from liqscope.models.liquidation import LiquidationEvent
 from liqscope.models.market import Trade
 
@@ -123,6 +123,7 @@ class BinanceFuturesConnector(DataSource):
                 usd_volume=usd_volume,
                 timestamp=timestamp,
                 origin=DataOrigin.ESTIMATED,
+                coverage=DataCoverage.SAMPLED,
             )
         except (KeyError, ValueError, TypeError, ValidationError) as exc:
             logger.warning(

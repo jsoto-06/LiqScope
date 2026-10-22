@@ -34,7 +34,11 @@ def verify_binance_rate_limits() -> None:
         log(f"  - {rl}")
 
     weight_limit = next(
-        (rl for rl in rate_limits if rl.get("rateLimitType") == "REQUEST_WEIGHT" and rl.get("interval") == "MINUTE"),
+        (
+            rl
+            for rl in rate_limits
+            if rl.get("rateLimitType") == "REQUEST_WEIGHT" and rl.get("interval") == "MINUTE"
+        ),
         None,
     )
 

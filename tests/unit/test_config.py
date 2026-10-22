@@ -100,3 +100,17 @@ def test_get_settings_singleton_helper() -> None:
     settings = get_settings()
     assert isinstance(settings, Settings)
     assert settings.port == 8000
+
+
+@pytest.mark.parametrize(
+    "invalid_url", ["http://stream.bybit.com", "ftp://stream.bybit.com", "invalid-url"]
+)
+def test_invalid_ws_url_raises_validation_error(invalid_url: str) -> None:
+    """Verifica que URLs de WebSocket que no inicien con ws:// o wss:// sean rechazadas."""
+    with pytest.raises(ValidationError) as exc_info:
+        Settings(bybit_ws_url=invalid_url)
+    assert "iniciar con ws:// o wss://" in str(exc_info.value)
+
+    with pytest.raises(ValidationError) as exc_info:
+        Settings(binance_ws_url=invalid_url)
+    assert "iniciar con ws:// o wss://" in str(exc_info.value)
