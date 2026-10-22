@@ -1,0 +1,22 @@
+================================================================================
+HYPERLIQUID WEIGHT BUDGET VERIFICATION
+================================================================================
+Official Documentation Sources:
+  - Rate Limits: https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/rate-limits
+    Citation: 'REST requests share an aggregated weight limit of 1200 per minute.'
+    Citation: 'The following info requests have weight 2: ... clearinghouseState ...'
+    Citation: 'All other documented info requests have weight 20.' (applies to metaAndAssetCtxs)
+--------------------------------------------------------------------------------
+Budget Breakdown:
+  Rate Limit per IP:            1200 weight / min
+  Max Tracked Addresses:        20 wallets
+  Meta poll interval:           15.0 s (4.0 calls/min)
+  Meta weight consumption:      80.0 weight / min
+  Wallet poll interval:         10.0 s (6.0 calls/min per wallet)
+  Wallet weight consumption:    240.0 weight / min
+  Total Weight Consumption:     320.0 weight / min
+  Budget Utilization:           26.67%
+  Safety Margin:                73.33%
+--------------------------------------------------------------------------------
+STATUS: PASS (SAFE MARGIN)
+================================================================================

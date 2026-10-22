@@ -1,7 +1,7 @@
 {
   "synthetic": true,
   "notice": "SYNTHETIC FIXTURE - For unit testing and offline development. Anonymized synthetic address.",
-  "user": "0x0000000000000000000000000000000000000001",
+  "user": "0x000000000000000000000000000000000000dead",
   "origin": "MODELED",
   "coverage": "N/A"
 }

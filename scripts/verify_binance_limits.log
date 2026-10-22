@@ -1,0 +1,12 @@
+================================================================================
+BINANCE FUTURES RATE LIMIT VERIFICATION
+================================================================================
+Requesting: https://fapi.binance.com/fapi/v1/exchangeInfo
+Found 3 rate limit specifications:
+  - {'rateLimitType': 'REQUEST_WEIGHT', 'interval': 'MINUTE', 'intervalNum': 1, 'limit': 2400}
+  - {'rateLimitType': 'ORDERS', 'interval': 'MINUTE', 'intervalNum': 1, 'limit': 1200}
+  - {'rateLimitType': 'ORDERS', 'interval': 'SECOND', 'intervalNum': 10, 'limit': 300}
+--------------------------------------------------------------------------------
+Verified REQUEST_WEIGHT per MINUTE limit: 2400
+STATUS: PASS
+================================================================================

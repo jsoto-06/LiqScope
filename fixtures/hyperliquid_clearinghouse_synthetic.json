@@ -1,42 +1,45 @@
 {
+  "_synthetic": true,
+  "_notice": "SYNTHETIC DEMO FIXTURE - 100% fabricated values for unit testing and offline development.",
+  "_user": "0x000000000000000000000000000000000000dead",
   "marginSummary": {
-    "accountValue": "7045.453321",
-    "totalNtlPos": "1.68462",
-    "totalRawUsd": "7047.137941",
-    "totalMarginUsed": "0.421155"
+    "accountValue": "10000.000000",
+    "totalNtlPos": "5000.000000",
+    "totalRawUsd": "9500.000000",
+    "totalMarginUsed": "500.000000"
   },
   "crossMarginSummary": {
-    "accountValue": "7045.453321",
-    "totalNtlPos": "1.68462",
-    "totalRawUsd": "7047.137941",
-    "totalMarginUsed": "0.421155"
+    "accountValue": "10000.000000",
+    "totalNtlPos": "5000.000000",
+    "totalRawUsd": "9500.000000",
+    "totalMarginUsed": "500.000000"
   },
-  "crossMaintenanceMarginUsed": "0.033692",
-  "withdrawable": "7045.032166",
+  "crossMaintenanceMarginUsed": "150.000000",
+  "withdrawable": "9500.000000",
   "assetPositions": [
     {
       "type": "oneWay",
       "position": {
-        "coin": "ETH",
-        "szi": "-0.0007",
+        "coin": "BTC",
+        "szi": "0.1000",
         "leverage": {
           "type": "cross",
-          "value": 4
+          "value": 10
         },
-        "entryPx": "2499.67",
-        "positionValue": "1.68462",
-        "unrealizedPnl": "0.065151",
-        "returnOnEquity": "0.1489360608",
-        "liquidationPx": "9869941.093837535",
-        "marginUsed": "0.421155",
-        "maxLeverage": 25,
+        "entryPx": "50000.0",
+        "positionValue": "5000.000000",
+        "unrealizedPnl": "500.000000",
+        "returnOnEquity": "0.1000000000",
+        "liquidationPx": "45000.0000000000",
+        "marginUsed": "500.000000",
+        "maxLeverage": 50,
         "cumFunding": {
-          "allTime": "-187.317964",
-          "sinceOpen": "-0.024672",
-          "sinceChange": "-0.024672"
+          "allTime": "12.345678",
+          "sinceOpen": "1.234567",
+          "sinceChange": "1.234567"
         }
       }
     }
   ],
-  "time": 1792679175936
+  "time": 1700000000000
 }

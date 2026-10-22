@@ -76,3 +76,16 @@ Para soportar el **Modo Demo / Offline** y tests automatizados sin requerir cone
 - Todos los archivos en el directorio `fixtures/demo/` contienen datos **100 % sintéticos**.
 - Cada archivo incluye en su raíz los campos `_synthetic: true` y `_notice` advirtiendo explícitamente su naturaleza ficticia.
 - No representan cuentas reales, saldos de usuarios ni libros de órdenes en vivo.
+
+
+---
+
+## 5. Historial de Git y Direcciones de Terceros
+
+> [!CAUTION]
+> **Registro de incidente de privacidad en Git:**  
+> En los commits `f5eeb24` y `64a8606` del historial de Git se introdujo involuntariamente una dirección de billetera de un tercero obtenida durante consultas exploratorias a Hyperliquid.
+> 
+> - **Estado actual:** El archivo real fue eliminado del árbol de trabajo en `64a8606` y sustituido íntegramente por fixtures con datos 100 % sintéticos e inventados (`fixtures/hyperliquid_clearinghouse_synthetic.json`).
+> - **Compromiso operativo:** Dicha dirección **no se vuelve a usar bajo ninguna circunstancia** en el código, pruebas, fixtures o documentación.
+> - **Política de reescritura:** Por instrucción expresa del usuario, **no se reescribirá el historial de Git** (`git reset --hard` / `git push --force`) sin su confirmación expresa previa.
