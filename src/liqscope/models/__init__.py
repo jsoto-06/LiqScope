@@ -9,6 +9,7 @@ from liqscope.models.common import (
     PositionSide,
     TradeSide,
 )
+from liqscope.models.heatmap import HeatmapBin, HeatmapSnapshot, LiquidationLevel
 from liqscope.models.liquidation import LiquidationEvent
 from liqscope.models.market import OpenInterestSnapshot, Trade
 
@@ -17,7 +18,10 @@ __all__ = [
     "DataSourceType",
     "Environment",
     "Exchange",
+    "HeatmapBin",
+    "HeatmapSnapshot",
     "LiquidationEvent",
+    "LiquidationLevel",
     "LogLevel",
     "OpenInterestSnapshot",
     "PositionSide",
