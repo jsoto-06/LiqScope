@@ -210,16 +210,16 @@ def test_exact_tier_formula_invalid_inputs(p: float, lev: float, qty: float) -> 
 
 
 def test_binance_eth_tier_lookup() -> None:
-    """Verifica la asignación de escalones para ETHUSDT."""
+    """Verifica la asignación de escalones para ETHUSDT con estatus PENDING_VERIFICATION."""
     t1 = get_tier_for_notional("ETHUSDT", 10_000.0)
     assert t1.tier == 1
     assert t1.maintenance_margin_rate == 0.005
-    assert t1.status == "VERIFIED"
+    assert t1.status == "PENDING_VERIFICATION"
 
     t2 = get_tier_for_notional("ETHUSDT", 50_000.0)
     assert t2.tier == 2
     assert t2.maintenance_margin_rate == 0.010
-    assert t2.status == "VERIFIED"
+    assert t2.status == "PENDING_VERIFICATION"
 
     t4 = get_tier_for_notional("ETHUSDT", 1_000_000.0)
     assert t4.tier == 4
@@ -239,12 +239,12 @@ def test_aggregator_zero_inputs_returns_empty() -> None:
 
 
 def test_binance_btc_tier_lookup() -> None:
-    """Verifica la asignación de escalones para BTCUSDT."""
-    # Nocional pequeño (Tier 1, verificado)
+    """Verifica la asignación de escalones para BTCUSDT con estatus PENDING_VERIFICATION."""
+    # Nocional pequeño
     t1 = get_tier_for_notional("BTCUSDT", 25_000.0)
     assert t1.tier == 1
     assert t1.maintenance_margin_rate == 0.004
-    assert t1.status == "VERIFIED"
+    assert t1.status == "PENDING_VERIFICATION"
     assert "binance.com" in t1.official_url
     assert t1.consulted_at == "2026-10-22"
 

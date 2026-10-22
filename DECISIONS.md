@@ -89,17 +89,16 @@ Este documento registra cada decisión técnica clave, su contexto, alternativas
 
 ---
 
-## ADR-009: Especificación Oficial de Rate Limits y Streams de Binance Futures
+## ADR-009: Especificación de Rate Limits y Streams de Binance Futures
 - **Fecha:** 2026-10-22
 - **Estado:** Aceptado
-- **Contexto:** Es imperativo conocer los límites exactos de la API para configurar limitadores de tasa y colas de ingesta sin riesgo de bloqueos HTTP 429/418.
-- **Fuentes Oficiales:**
-  - [Binance Futures General Info - Rate Limits](https://developers.binance.com/docs/derivatives/usds-margined-futures/general-info#rate-limits)
-  - [Binance Futures WebSocket Streams - Liquidation Order Streams](https://developers.binance.com/docs/derivatives/usds-margined-futures/websocket-market-streams/Liquidation-Order-Streams)
-- **Decisión:**
-  1. **REST Rate Limits:** Fijar el presupuesto de peticiones respetando el límite por defecto de **2400 request weight/minuto por IP** (`X-MBX-USED-WEIGHT-1M`).
-  2. **Stream `forceOrder`:** El ritmo de actualización oficial de Binance es de **1000 ms** y solo entrega la orden forzada de mayor tamaño del intervalo. Por consiguiente, `forceOrder` no satura la red pero representa un límite inferior muestreado.
-  3. **Stream `aggTrade`:** Se procesa como flujo de alta frecuencia (push continuo en tiempo real).
+- **Contexto:** Se requiere conocer los límites de la API para configurar limitadores de tasa y colas de ingesta sin riesgo de bloqueos HTTP 429/418.
+- **Fuentes y Evidencia:**
+  - **Límites REST:** La llamada al endpoint público en vivo `https://fapi.binance.com/fapi/v1/exchangeInfo` retorna explícitamente:
+    `[{"rateLimitType": "REQUEST_WEIGHT", "interval": "MINUTE", "intervalNum": 1, "limit": 2400}, {"rateLimitType": "ORDERS", "interval": "MINUTE", "limit": 1200}, {"rateLimitType": "ORDERS", "interval": "SECOND", "intervalNum": 10, "limit": 300}]`. La página de documentación HTML (`developers.binance.com`) responde HTTP 202 (desafío Cloudflare), por lo que la cita de prosa se etiqueta como empírica por API y no como texto literal verificado de navegador.
+  - **Corrección de citas:** Se retira la frase sobre cabecera `Retry-After` por pertenecer a la documentación de Spot y no constar textualmente en la de Futuros USDⓈ-M.
+  - **Tiers de Margen (MMR):** La página `binance.com/en/futures/trading-rules/perpetual/leverage-margin` responde HTTP 202 (Cloudflare). En estricto cumplimiento de la regla de evidencia, todos los tiers se etiquetan en código con `status="PENDING_VERIFICATION"` y las fórmulas reciben el MMR como supuesto configurable.
+  - **Stream `forceOrder`:** Stream `<symbol>@forceOrder` o `!forceOrder@arr`. Frecuencia de 1000 ms con emisión de la orden más grande del intervalo (límite inferior muestreado).
 
 ---
 

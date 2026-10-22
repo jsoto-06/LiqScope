@@ -29,16 +29,19 @@ OFFICIAL_TIERS_URL: Final[str] = (
 )
 CONSULTATION_DATE: Final[str] = "2026-10-22"
 
-# Tiers verificados para BTCUSDT (Binance Futures USDⓈ-M)
+# Tiers para BTCUSDT (Binance Futures USDⓈ-M)
+# NOTA: Marcados como PENDING_VERIFICATION debido a que la página oficial
+# https://www.binance.com/en/futures/trading-rules/perpetual/leverage-margin
+# devuelve HTTP 202 (Cloudflare) y no puede ser extraída de forma automatizada sin navegador.
 BINANCE_BTCUSDT_TIERS: Final[list[MarginTier]] = [
     MarginTier(
         tier=1,
         min_notional=0.0,
         max_notional=50_000.0,
-        maintenance_margin_rate=0.004,  # 0.40%
+        maintenance_margin_rate=0.004,  # 0.40% (Supuesto pendiente de verificación)
         cum_maintenance_amount=0.0,
         max_leverage=125,
-        status="VERIFIED",
+        status="PENDING_VERIFICATION",
         official_url=OFFICIAL_TIERS_URL,
         consulted_at=CONSULTATION_DATE,
     ),
@@ -46,10 +49,10 @@ BINANCE_BTCUSDT_TIERS: Final[list[MarginTier]] = [
         tier=2,
         min_notional=50_000.0,
         max_notional=250_000.0,
-        maintenance_margin_rate=0.005,  # 0.50%
+        maintenance_margin_rate=0.005,  # 0.50% (Supuesto pendiente de verificación)
         cum_maintenance_amount=50.0,
         max_leverage=100,
-        status="VERIFIED",
+        status="PENDING_VERIFICATION",
         official_url=OFFICIAL_TIERS_URL,
         consulted_at=CONSULTATION_DATE,
     ),
@@ -57,10 +60,10 @@ BINANCE_BTCUSDT_TIERS: Final[list[MarginTier]] = [
         tier=3,
         min_notional=250_000.0,
         max_notional=1_000_000.0,
-        maintenance_margin_rate=0.010,  # 1.00%
+        maintenance_margin_rate=0.010,  # 1.00% (Supuesto pendiente de verificación)
         cum_maintenance_amount=1_300.0,
         max_leverage=50,
-        status="VERIFIED",
+        status="PENDING_VERIFICATION",
         official_url=OFFICIAL_TIERS_URL,
         consulted_at=CONSULTATION_DATE,
     ),
@@ -68,10 +71,10 @@ BINANCE_BTCUSDT_TIERS: Final[list[MarginTier]] = [
         tier=4,
         min_notional=1_000_000.0,
         max_notional=5_000_000.0,
-        maintenance_margin_rate=0.025,  # 2.50%
+        maintenance_margin_rate=0.025,  # 2.50% (Supuesto pendiente de verificación)
         cum_maintenance_amount=16_300.0,
         max_leverage=20,
-        status="VERIFIED",
+        status="PENDING_VERIFICATION",
         official_url=OFFICIAL_TIERS_URL,
         consulted_at=CONSULTATION_DATE,
     ),
@@ -79,7 +82,7 @@ BINANCE_BTCUSDT_TIERS: Final[list[MarginTier]] = [
         tier=5,
         min_notional=5_000_000.0,
         max_notional=float("inf"),
-        maintenance_margin_rate=0.050,  # 5.00% estimado para tramos institucionales
+        maintenance_margin_rate=0.050,  # 5.00% (Supuesto pendiente de verificación)
         cum_maintenance_amount=141_300.0,
         max_leverage=10,
         status="PENDING_VERIFICATION",
@@ -88,16 +91,17 @@ BINANCE_BTCUSDT_TIERS: Final[list[MarginTier]] = [
     ),
 ]
 
-# Tiers verificados para ETHUSDT (Binance Futures USDⓈ-M)
+# Tiers para ETHUSDT (Binance Futures USDⓈ-M)
+# NOTA: Marcados como PENDING_VERIFICATION debido a bloqueo HTTP 202 (Cloudflare).
 BINANCE_ETHUSDT_TIERS: Final[list[MarginTier]] = [
     MarginTier(
         tier=1,
         min_notional=0.0,
         max_notional=25_000.0,
-        maintenance_margin_rate=0.005,  # 0.50%
+        maintenance_margin_rate=0.005,  # 0.50% (Supuesto pendiente de verificación)
         cum_maintenance_amount=0.0,
         max_leverage=100,
-        status="VERIFIED",
+        status="PENDING_VERIFICATION",
         official_url=OFFICIAL_TIERS_URL,
         consulted_at=CONSULTATION_DATE,
     ),
@@ -105,10 +109,10 @@ BINANCE_ETHUSDT_TIERS: Final[list[MarginTier]] = [
         tier=2,
         min_notional=25_000.0,
         max_notional=150_000.0,
-        maintenance_margin_rate=0.010,  # 1.00%
+        maintenance_margin_rate=0.010,  # 1.00% (Supuesto pendiente de verificación)
         cum_maintenance_amount=125.0,
         max_leverage=50,
-        status="VERIFIED",
+        status="PENDING_VERIFICATION",
         official_url=OFFICIAL_TIERS_URL,
         consulted_at=CONSULTATION_DATE,
     ),
@@ -116,10 +120,10 @@ BINANCE_ETHUSDT_TIERS: Final[list[MarginTier]] = [
         tier=3,
         min_notional=150_000.0,
         max_notional=500_000.0,
-        maintenance_margin_rate=0.020,  # 2.00%
+        maintenance_margin_rate=0.020,  # 2.00% (Supuesto pendiente de verificación)
         cum_maintenance_amount=1_625.0,
         max_leverage=25,
-        status="VERIFIED",
+        status="PENDING_VERIFICATION",
         official_url=OFFICIAL_TIERS_URL,
         consulted_at=CONSULTATION_DATE,
     ),
@@ -127,7 +131,7 @@ BINANCE_ETHUSDT_TIERS: Final[list[MarginTier]] = [
         tier=4,
         min_notional=500_000.0,
         max_notional=float("inf"),
-        maintenance_margin_rate=0.050,  # 5.00%
+        maintenance_margin_rate=0.050,  # 5.00% (Supuesto pendiente de verificación)
         cum_maintenance_amount=16_625.0,
         max_leverage=10,
         status="PENDING_VERIFICATION",

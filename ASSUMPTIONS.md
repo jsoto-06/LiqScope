@@ -46,10 +46,27 @@ Para contratos lineales cotizados en USDT/USDC con precio de entrada $P_{\text{e
 - **Posición Corta (Short):**
   $$P_{\text{liq, short}} \approx P_{\text{entry}} \times \left(1 + \frac{1}{L} - \text{MMR}\right)$$
 
-### 3.2. Fuentes Oficiales de Escalones de Mantenimiento (Tiers)
-- **Binance Futures:** [Binance Leverage and Margin of USDⓈ-M Futures](https://www.binance.com/en/futures/trading-rules/perpetual/leverage-margin)
-- **Bybit Linear:** [Bybit Margin & Risk Limit (USDT Perpetual)](https://www.bybit.com/en/help-center/article/Risk-Limit-USDT-Perpetual)
-- **Hyperliquid:** [Hyperliquid Documentation - Margin Requirements](https://hyperliquid.gitbook.io/hyperliquid-docs)
+### 3.2. Fuentes y Estado de Verificación de Escalones de Mantenimiento (Tiers)
+
+- **Binance Futures USDⓈ-M:**
+  - **URL:** [https://www.binance.com/en/futures/trading-rules/perpetual/leverage-margin](https://www.binance.com/en/futures/trading-rules/perpetual/leverage-margin)
+  - **Fecha de Consulta:** `2026-10-22`
+  - **Estado:** **`PENDING_VERIFICATION`** (La página web oficial de reglas de trading devuelve `HTTP 202 Accepted` con longitud 0 a clientes no interactivos por desafío anti-bot Cloudflare, por lo que no es posible extraer el texto literal mediante scripts).
+  - **Supuesto Operativo:** Todos los valores de MMR incorporados en `tiers.py` y en las pruebas (ej. 0.004 para BTC, 0.005 para ETH) se tratan formalmente como **supuestos analíticos de cálculo**, no como datos oficiales confirmados.
+- **Bybit Linear:** [Bybit Margin & Risk Limit (USDT Perpetual)](https://www.bybit.com/en/help-center/article/Risk-Limit-USDT-Perpetual) — *(Diferido a Fase 3)*.
+- **Hyperliquid:** [Hyperliquid Documentation - Margin Requirements](https://hyperliquid.gitbook.io/hyperliquid-docs) — *(Diferido a Fase 3)*.
+
+### 3.3. Límites de Tasa (Rate Limits) de Binance Futures
+- **Endpoint en vivo:** `https://fapi.binance.com/fapi/v1/exchangeInfo` (Consultado el `2026-10-22`).
+- **Respuesta JSON de la API:**
+  ```json
+  [
+    {"rateLimitType": "REQUEST_WEIGHT", "interval": "MINUTE", "intervalNum": 1, "limit": 2400},
+    {"rateLimitType": "ORDERS", "interval": "MINUTE", "intervalNum": 1, "limit": 1200},
+    {"rateLimitType": "ORDERS", "interval": "SECOND", "intervalNum": 10, "limit": 300}
+  ]
+  ```
+- **Estado de la documentación en texto (`developers.binance.com`):** La página web devuelve `HTTP 202` (Cloudflare). Se retira cualquier mención a la frase *"A Retry-After header will be sent with a 418 or 429 response"* (perteneciente a Spot). El límite de 2.400 weight/min se toma con la evidencia JSON de la API viva, quedando la cita literal de texto de la página como **`PENDING_VERIFICATION`**.
 
 ---
 
