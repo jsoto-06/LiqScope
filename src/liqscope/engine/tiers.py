@@ -1,5 +1,7 @@
 """Escalones supuestos de Margen de Mantenimiento (MMR) para Binance Futures USDⓈ-M.
 
+Ningún valor de este archivo está verificado contra Binance; son supuestos analíticos.
+
 Alcance: Fase 2 limitada a Binance USDⓈ-M (BTCUSDT y ETHUSDT).
 Estado de Verificación: PENDING_VERIFICATION (valores numéricos supuestos).
 Fuente Declarada: https://www.binance.com/en/futures/trading-rules/perpetual/leverage-margin
@@ -36,7 +38,7 @@ CONSULTATION_DATE: Final[str] = "2026-10-22"
 # https://www.binance.com/en/futures/trading-rules/perpetual/leverage-margin
 # devuelve HTTP 202 (desafío anti-bot Cloudflare) y no puede ser extraída sin navegador.
 # Todos los escalones se definen con status="PENDING_VERIFICATION".
-BINANCE_BTCUSDT_TIERS: Final[list[MarginTier]] = [
+ASSUMED_BTCUSDT_TIERS: Final[list[MarginTier]] = [
     MarginTier(
         tier=1,
         min_notional=0.0,
@@ -96,7 +98,7 @@ BINANCE_BTCUSDT_TIERS: Final[list[MarginTier]] = [
 
 # Tiers supuestos para ETHUSDT (Binance Futures USDⓈ-M)
 # AVISO: Todos los valores son SUPUESTOS ANALÍTICOS provisionales con status="PENDING_VERIFICATION".
-BINANCE_ETHUSDT_TIERS: Final[list[MarginTier]] = [
+ASSUMED_ETHUSDT_TIERS: Final[list[MarginTier]] = [
     MarginTier(
         tier=1,
         min_notional=0.0,
@@ -148,9 +150,9 @@ def get_tier_for_notional(symbol: str, notional_usd: float) -> MarginTier:
     """Retorna el escalón de margen correspondiente según el símbolo y nocional en USD."""
     sym = symbol.upper()
     if sym == "BTCUSDT":
-        tiers = BINANCE_BTCUSDT_TIERS
+        tiers = ASSUMED_BTCUSDT_TIERS
     elif sym == "ETHUSDT":
-        tiers = BINANCE_ETHUSDT_TIERS
+        tiers = ASSUMED_ETHUSDT_TIERS
     else:
         # Fallback genérico para otros símbolos aún no verificados
         return MarginTier(

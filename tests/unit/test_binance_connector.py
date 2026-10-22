@@ -489,3 +489,58 @@ async def test_handle_raw_message_ignores_unparseable_events() -> None:
 
     assert len(emitted_trades) == 0
     assert len(emitted_liqs) == 0
+
+
+@pytest.mark.asyncio
+async def test_connector_run_loop_handles_unhandled_msg_type_ping(
+    monkeypatch: pytest.MonkeyPatch,
+    recorded_messages: dict[str, dict[str, Any]],
+) -> None:
+    """Verifica que mensajes no manejados (ej. PING) no rompan el bucle y continúe el proceso (rama 214->206)."""
+    connector = BinanceFuturesConnector(symbol="BTCUSDT")
+    connector.settings.ws_reconnect_min_delay_sec = 0.01
+
+    raw_trade = json.dumps(recorded_messages["valid_agg_trade_buyer_maker"])
+
+    class MockPingWS:
+        def __init__(self) -> None:
+            self.closed = False
+
+        async def __aenter__(self) -> "MockPingWS":
+            return self
+
+        async def __aexit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
+            self.closed = True
+            connector._running = False
+
+        def __aiter__(self) -> Any:
+            async def gen() -> Any:
+                # 1. Emitir PING (tipo no manejado por los if/elif -> rama 214->206)
+                yield MagicMock(type=aiohttp.WSMsgType.PING, data=b"")
+                # 2. Emitir TEXT válido a continuación para confirmar que el bucle continúa
+                yield MagicMock(type=aiohttp.WSMsgType.TEXT, data=raw_trade)
+                # 3. Emitir CLOSE para salir de la iteración
+                yield MagicMock(type=aiohttp.WSMsgType.CLOSE, data="")
+
+            return gen()
+
+    mock_session = MagicMock()
+    mock_session.closed = False
+    mock_session.close = AsyncMock()
+    mock_session.ws_connect.return_value = MockPingWS()
+    monkeypatch.setattr(aiohttp, "ClientSession", lambda **kwargs: mock_session)
+
+    emitted: list[Trade] = []
+
+    async def on_trade(t: Trade) -> None:
+        emitted.append(t)
+
+    connector.register_trade_handler(on_trade)
+
+    await connector.start()
+    await asyncio.sleep(0.03)
+    await connector.stop()
+
+    assert connector.status == ConnectionStatus.DISCONNECTED
+    assert len(emitted) == 1
+    assert emitted[0].price == 68520.10
