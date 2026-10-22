@@ -4,7 +4,7 @@ from datetime import UTC, datetime
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from liqscope.models.common import Exchange, PositionSide
+from liqscope.models.common import Exchange, TradeSide
 
 
 class Trade(BaseModel):
@@ -16,7 +16,9 @@ class Trade(BaseModel):
     symbol: str = Field(description="Símbolo del par (ej. BTCUSDT)")
     price: float = Field(gt=0, description="Precio de ejecución de la operación")
     quantity: float = Field(gt=0, description="Volumen/cantidad operada en contratos/base")
-    side: PositionSide = Field(description="Lado agresor/tomador (LONG/BUY o SHORT/SELL)")
+    side: TradeSide = Field(
+        description="Lado agresor/tomador (AGGRESSIVE_BUY o AGGRESSIVE_SELL)",
+    )
     timestamp: datetime = Field(
         default_factory=lambda: datetime.now(UTC),
         description="Marca de tiempo en UTC",

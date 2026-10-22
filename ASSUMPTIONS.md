@@ -12,6 +12,7 @@ El modelo diferencia estrictamente entre dos naturalezas de datos según el exch
 1. **Datos Reales (`REAL`):**
    - **Fuente:** Hyperliquid L1/L2 On-Chain Info API (`https://api.hyperliquid.xyz/info`).
    - **Fundamento:** Al ser un exchange perpetuo descentralizado con libro de órdenes on-chain y liquidación programática, el estado del margen, apalancamiento exacto, tamaño y precio de liquidación de las cuentas es público y verificable en el estado del clearinghouse.
+   - **Restricción y Supuesto Operativo de Hyperliquid:** La API oficial de Hyperliquid (`clearinghouseState`) **requiere consultar direcciones de billetera específicas** (`{"type": "clearinghouseState", "user": "0x..."}`) y no ofrece un volcado global anónimo de todas las posiciones abiertas del exchange en una sola llamada. Por lo tanto, el mapa de liquidaciones reales de Hyperliquid en LiqScope se basa en el seguimiento de un conjunto seleccionado de **direcciones conocidas** (traders líderes del leaderboard, bóvedas históricas o cuentas descubiertas mediante trades recientes) y representa la muestra verificable de dichas cuentas, no el universo absoluto no indexado.
 2. **Datos Estimados (`ESTIMATED`):**
    - **Fuentes:** Binance Futures USDT-M y Bybit Linear.
    - **Fundamento:** Los CEX centralizados no publican los libros de posiciones individuales abiertas por motivos de privacidad comercial. Publican el Open Interest global, el flujo de operaciones (trades) y los eventos forzados de liquidación ejecutados (`forceOrder`).

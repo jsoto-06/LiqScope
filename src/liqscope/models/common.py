@@ -20,6 +20,13 @@ class PositionSide(StrEnum):
     BOTH = "both"
 
 
+class TradeSide(StrEnum):
+    """Lado agresor/tomador de una operación de mercado ejecutada."""
+
+    AGGRESSIVE_BUY = "AGGRESSIVE_BUY"
+    AGGRESSIVE_SELL = "AGGRESSIVE_SELL"
+
+
 class DataOrigin(StrEnum):
     """Origen del dato: real (on-chain Hyperliquid) o estimado (CEX)."""
 

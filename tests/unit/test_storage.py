@@ -4,7 +4,7 @@ from datetime import UTC, datetime
 
 import pytest
 
-from liqscope.models.common import DataOrigin, Exchange, PositionSide
+from liqscope.models.common import DataOrigin, Exchange, PositionSide, TradeSide
 from liqscope.models.liquidation import LiquidationEvent
 from liqscope.models.market import Trade
 from liqscope.storage.sqlite import SqliteStorageRepository
@@ -24,7 +24,7 @@ async def test_sqlite_storage_lifecycle_and_crud() -> None:
         symbol="BTCUSDT",
         price=68200.0,
         quantity=0.5,
-        side=PositionSide.LONG,
+        side=TradeSide.AGGRESSIVE_BUY,
         timestamp=now,
         trade_id="trade_1001",
     )
@@ -35,7 +35,7 @@ async def test_sqlite_storage_lifecycle_and_crud() -> None:
     assert trades[0].symbol == "BTCUSDT"
     assert trades[0].price == 68200.0
     assert trades[0].quantity == 0.5
-    assert trades[0].side == PositionSide.LONG
+    assert trades[0].side == TradeSide.AGGRESSIVE_BUY
     assert trades[0].trade_id == "trade_1001"
 
     # 2. Probar Liquidation CRUD
@@ -73,7 +73,7 @@ async def test_uninitialized_storage_raises_runtime_error() -> None:
         symbol="BTCUSDT",
         price=68000.0,
         quantity=1.0,
-        side=PositionSide.LONG,
+        side=TradeSide.AGGRESSIVE_BUY,
     )
     liq = LiquidationEvent(
         exchange=Exchange.BINANCE,

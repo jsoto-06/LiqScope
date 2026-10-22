@@ -5,7 +5,7 @@ from pathlib import Path
 
 import aiosqlite
 
-from liqscope.models.common import DataOrigin, Exchange, PositionSide
+from liqscope.models.common import DataOrigin, Exchange, PositionSide, TradeSide
 from liqscope.models.liquidation import LiquidationEvent
 from liqscope.models.market import Trade
 from liqscope.storage.base import BaseStorageRepository
@@ -183,7 +183,7 @@ class SqliteStorageRepository(BaseStorageRepository):
                 symbol=row["symbol"],
                 price=float(row["price"]),
                 quantity=float(row["quantity"]),
-                side=PositionSide(row["side"]),
+                side=TradeSide(row["side"]),
                 timestamp=datetime.fromisoformat(row["timestamp"]),
                 trade_id=row["trade_id"],
             )

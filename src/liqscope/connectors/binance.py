@@ -13,7 +13,7 @@ from pydantic import ValidationError
 
 from liqscope.config import Settings, get_settings
 from liqscope.connectors.base import ConnectionStatus, DataSource
-from liqscope.models.common import DataOrigin, Exchange, PositionSide
+from liqscope.models.common import DataOrigin, Exchange, PositionSide, TradeSide
 from liqscope.models.liquidation import LiquidationEvent
 from liqscope.models.market import Trade
 
@@ -62,7 +62,7 @@ class BinanceFuturesConnector(DataSource):
             price = float(payload["p"])
             quantity = float(payload["q"])
             is_buyer_maker = bool(payload["m"])
-            side = PositionSide.SHORT if is_buyer_maker else PositionSide.LONG
+            side = TradeSide.AGGRESSIVE_SELL if is_buyer_maker else TradeSide.AGGRESSIVE_BUY
             trade_time_ms = int(payload["T"])
             timestamp = datetime.fromtimestamp(trade_time_ms / 1000.0, tz=UTC)
             trade_id = payload.get("a")

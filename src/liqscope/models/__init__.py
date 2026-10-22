@@ -7,6 +7,7 @@ from liqscope.models.common import (
     Exchange,
     LogLevel,
     PositionSide,
+    TradeSide,
 )
 from liqscope.models.liquidation import LiquidationEvent
 from liqscope.models.market import OpenInterestSnapshot, Trade
@@ -21,4 +22,5 @@ __all__ = [
     "OpenInterestSnapshot",
     "PositionSide",
     "Trade",
+    "TradeSide",
 ]

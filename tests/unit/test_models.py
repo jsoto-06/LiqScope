@@ -5,7 +5,7 @@ from datetime import UTC, datetime
 import pytest
 from pydantic import ValidationError
 
-from liqscope.models.common import DataOrigin, Exchange, PositionSide
+from liqscope.models.common import DataOrigin, Exchange, PositionSide, TradeSide
 from liqscope.models.liquidation import LiquidationEvent
 from liqscope.models.market import OpenInterestSnapshot, Trade
 
@@ -18,7 +18,7 @@ def test_trade_model_valid() -> None:
         symbol="BTCUSDT",
         price=68000.5,
         quantity=0.25,
-        side=PositionSide.LONG,
+        side=TradeSide.AGGRESSIVE_BUY,
         timestamp=now,
         trade_id="123456",
     )
@@ -26,7 +26,7 @@ def test_trade_model_valid() -> None:
     assert trade.symbol == "BTCUSDT"
     assert trade.price == 68000.5
     assert trade.quantity == 0.25
-    assert trade.side == PositionSide.LONG
+    assert trade.side == TradeSide.AGGRESSIVE_BUY
     assert trade.timestamp == now
     assert trade.trade_id == "123456"
 
@@ -40,7 +40,7 @@ def test_trade_model_invalid_price(invalid_price: float) -> None:
             symbol="BTCUSDT",
             price=invalid_price,
             quantity=1.0,
-            side=PositionSide.LONG,
+            side=TradeSide.AGGRESSIVE_BUY,
         )
 
 
@@ -53,7 +53,7 @@ def test_trade_model_invalid_quantity(invalid_qty: float) -> None:
             symbol="BTCUSDT",
             price=68000.0,
             quantity=invalid_qty,
-            side=PositionSide.LONG,
+            side=TradeSide.AGGRESSIVE_BUY,
         )
 
 

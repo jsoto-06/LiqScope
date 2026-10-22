@@ -4,12 +4,14 @@ import asyncio
 import json
 from pathlib import Path
 from typing import Any, cast
+from unittest.mock import AsyncMock, MagicMock
 
+import aiohttp
 import pytest
 
 from liqscope.connectors.base import ConnectionStatus
 from liqscope.connectors.binance import BinanceFuturesConnector
-from liqscope.models.common import DataOrigin, Exchange, PositionSide
+from liqscope.models.common import DataOrigin, Exchange, PositionSide, TradeSide
 from liqscope.models.liquidation import LiquidationEvent
 from liqscope.models.market import Trade
 
@@ -24,7 +26,7 @@ def recorded_messages() -> dict[str, dict[str, Any]]:
 
 
 def test_parse_agg_trade_buyer_maker(recorded_messages: dict[str, dict[str, Any]]) -> None:
-    """Verifica el parseo de aggTrade cuando el comprador es maker (venta agresiva -> SHORT)."""
+    """Verifica el parseo de aggTrade cuando el comprador es maker (venta agresiva -> AGGRESSIVE_SELL)."""
     msg = recorded_messages["valid_agg_trade_buyer_maker"]
     trade = BinanceFuturesConnector.parse_agg_trade(msg)
 
@@ -33,12 +35,12 @@ def test_parse_agg_trade_buyer_maker(recorded_messages: dict[str, dict[str, Any]
     assert trade.symbol == "BTCUSDT"
     assert trade.price == 68520.10
     assert trade.quantity == 0.450
-    assert trade.side == PositionSide.SHORT
+    assert trade.side == TradeSide.AGGRESSIVE_SELL
     assert trade.trade_id == "12345678"
 
 
 def test_parse_agg_trade_buyer_taker(recorded_messages: dict[str, dict[str, Any]]) -> None:
-    """Verifica el parseo de aggTrade cuando el comprador es taker (compra agresiva -> LONG)."""
+    """Verifica el parseo de aggTrade cuando el comprador es taker (compra agresiva -> AGGRESSIVE_BUY)."""
     msg = recorded_messages["valid_agg_trade_buyer_taker"]
     trade = BinanceFuturesConnector.parse_agg_trade(msg)
 
@@ -47,7 +49,7 @@ def test_parse_agg_trade_buyer_taker(recorded_messages: dict[str, dict[str, Any]
     assert trade.symbol == "BTCUSDT"
     assert trade.price == 68525.00
     assert trade.quantity == 1.250
-    assert trade.side == PositionSide.LONG
+    assert trade.side == TradeSide.AGGRESSIVE_BUY
     assert trade.trade_id == "12345679"
 
 
@@ -92,6 +94,10 @@ def test_parse_malformed_messages_returns_none(
     msg_neg = recorded_messages["malformed_negative_price"]
     assert BinanceFuturesConnector.parse_agg_trade(msg_neg) is None
 
+    # Probar forceOrder malformado
+    assert BinanceFuturesConnector.parse_force_order({}) is None
+    assert BinanceFuturesConnector.parse_force_order({"o": {"p": "-100"}}) is None
+
 
 @pytest.mark.asyncio
 async def test_handle_raw_message_dispatches_events(
@@ -127,6 +133,9 @@ async def test_handle_raw_message_dispatches_events(
     }
     await connector.handle_raw_message(json.dumps(combined_payload))
 
+    # Enviar evento no manejado (ej. kline)
+    await connector.handle_raw_message(json.dumps({"e": "kline", "s": "BTCUSDT"}))
+
     # Enviar JSON corrupto (no debe romper la ejecución)
     await connector.handle_raw_message("INVALID_NOT_JSON{")
 
@@ -135,7 +144,9 @@ async def test_handle_raw_message_dispatches_events(
 
     assert len(emitted_trades) == 2
     assert emitted_trades[0].price == 68520.10
+    assert emitted_trades[0].side == TradeSide.AGGRESSIVE_SELL
     assert emitted_trades[1].price == 68525.00
+    assert emitted_trades[1].side == TradeSide.AGGRESSIVE_BUY
 
     assert len(emitted_liqs) == 1
     assert emitted_liqs[0].price == 68100.00
@@ -160,14 +171,39 @@ async def test_connector_stop_lifecycle() -> None:
 
 
 @pytest.mark.asyncio
+async def test_connector_start_idempotent() -> None:
+    """Verifica que llamar start() cuando ya está corriendo no cree tareas duplicadas."""
+    connector = BinanceFuturesConnector(symbol="BTCUSDT")
+    connector._running = True
+    await connector.start()
+    assert connector._running is True
+
+
+@pytest.mark.asyncio
+async def test_connector_stop_with_active_session_and_ws() -> None:
+    """Verifica que stop() cierre sockets y sesiones activas limpiamente."""
+    connector = BinanceFuturesConnector(symbol="BTCUSDT")
+    mock_session = MagicMock()
+    mock_session.closed = False
+    mock_session.close = AsyncMock()
+
+    mock_ws = MagicMock()
+    mock_ws.closed = False
+    mock_ws.close = AsyncMock()
+
+    connector._session = mock_session
+    connector._ws = mock_ws
+
+    await connector.stop()
+    mock_ws.close.assert_awaited_once()
+    mock_session.close.assert_awaited_once()
+    assert connector.status == ConnectionStatus.DISCONNECTED
+
+
+@pytest.mark.asyncio
 async def test_connector_reconnect_loop_on_client_error(monkeypatch: pytest.MonkeyPatch) -> None:
     """Simula una desconexión o fallo en el websocket sin tocar la red exterior."""
-    from unittest.mock import AsyncMock, MagicMock
-
-    import aiohttp
-
     connector = BinanceFuturesConnector(symbol="BTCUSDT")
-    # Reducir tiempos para que la prueba sea instantánea
     connector.settings.ws_reconnect_min_delay_sec = 0.01
     connector.settings.ws_reconnect_max_delay_sec = 0.02
 
@@ -175,7 +211,6 @@ async def test_connector_reconnect_loop_on_client_error(monkeypatch: pytest.Monk
     mock_session.closed = False
     mock_session.close = AsyncMock()
 
-    # Primera llamada a ws_connect lanza ClientError, la segunda cancela el bucle
     calls = 0
 
     class MockContextManager:
@@ -184,7 +219,6 @@ async def test_connector_reconnect_loop_on_client_error(monkeypatch: pytest.Monk
             calls += 1
             if calls == 1:
                 raise aiohttp.ClientError("Simulated network drop")
-            # Detener el conector tras el primer reintento
             connector._running = False
             raise asyncio.CancelledError()
 
@@ -194,7 +228,6 @@ async def test_connector_reconnect_loop_on_client_error(monkeypatch: pytest.Monk
     mock_session.ws_connect.return_value = MockContextManager()
     monkeypatch.setattr(aiohttp, "ClientSession", lambda **kwargs: mock_session)
 
-    # Iniciar y esperar brevemente a que el bucle ejecute la reconexión
     await connector.start()
     await asyncio.sleep(0.05)
     await connector.stop()
@@ -208,20 +241,19 @@ async def test_connector_run_loop_processes_ws_stream(
     monkeypatch: pytest.MonkeyPatch,
     recorded_messages: dict[str, dict[str, Any]],
 ) -> None:
-    """Verifica que el bucle procese mensajes TEXT/BINARY del WebSocket y termine limpiamente."""
-    from unittest.mock import AsyncMock, MagicMock
-
-    import aiohttp
-
+    """Verifica que el bucle procese mensajes TEXT y BINARY del WebSocket y termine limpiamente."""
     connector = BinanceFuturesConnector(symbol="BTCUSDT")
     connector.settings.ws_reconnect_min_delay_sec = 0.01
 
     raw_trade = json.dumps(recorded_messages["valid_agg_trade_buyer_maker"])
+    raw_liq = json.dumps(recorded_messages["valid_force_order_sell"]).encode("utf-8")
 
-    # Simular mensajes de aiohttp WebSocket
     class MockWS:
         def __init__(self) -> None:
             self.closed = False
+
+        def exception(self) -> Exception | None:
+            return None
 
         async def __aenter__(self) -> "MockWS":
             return self
@@ -231,7 +263,11 @@ async def test_connector_run_loop_processes_ws_stream(
 
         def __aiter__(self) -> Any:
             async def gen() -> Any:
+                # 1. Enviar mensaje TEXT
                 yield MagicMock(type=aiohttp.WSMsgType.TEXT, data=raw_trade)
+                # 2. Enviar mensaje BINARY
+                yield MagicMock(type=aiohttp.WSMsgType.BINARY, data=raw_liq)
+                # 3. Detener el bucle y enviar CLOSE
                 connector._running = False
                 yield MagicMock(type=aiohttp.WSMsgType.CLOSE, data="")
 
@@ -256,3 +292,76 @@ async def test_connector_run_loop_processes_ws_stream(
 
     assert len(emitted) == 1
     assert emitted[0].price == 68520.10
+    assert emitted[0].side == TradeSide.AGGRESSIVE_SELL
+
+
+@pytest.mark.asyncio
+async def test_connector_run_loop_handles_unexpected_exception(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Verifica que una excepción inesperada durante la conexión sea capturada y pase a ERROR."""
+    connector = BinanceFuturesConnector(symbol="BTCUSDT")
+    connector.settings.ws_reconnect_min_delay_sec = 0.01
+    connector.settings.ws_reconnect_max_delay_sec = 0.02
+
+    mock_session = MagicMock()
+    mock_session.closed = False
+    mock_session.close = AsyncMock()
+
+    class MockFailingContextManager:
+        async def __aenter__(self) -> None:
+            connector._running = False
+            raise RuntimeError("Excepción catastrófica simulada")
+
+        async def __aexit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
+            pass
+
+    mock_session.ws_connect.return_value = MockFailingContextManager()
+    monkeypatch.setattr(aiohttp, "ClientSession", lambda **kwargs: mock_session)
+
+    await connector.start()
+    await asyncio.sleep(0.03)
+    await connector.stop()
+
+    assert connector.status == ConnectionStatus.DISCONNECTED
+
+
+@pytest.mark.asyncio
+async def test_connector_run_loop_handles_ws_error_message(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Verifica que un mensaje de tipo WSMsgType.ERROR rompa el stream y no lance excepciones."""
+    connector = BinanceFuturesConnector(symbol="BTCUSDT")
+    connector.settings.ws_reconnect_min_delay_sec = 0.01
+
+    class MockErrorWS:
+        def __init__(self) -> None:
+            self.closed = False
+
+        def exception(self) -> Exception | None:
+            return RuntimeError("WS Protocol Error")
+
+        async def __aenter__(self) -> "MockErrorWS":
+            return self
+
+        async def __aexit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
+            self.closed = True
+
+        def __aiter__(self) -> Any:
+            async def gen() -> Any:
+                connector._running = False
+                yield MagicMock(type=aiohttp.WSMsgType.ERROR, data="")
+
+            return gen()
+
+    mock_session = MagicMock()
+    mock_session.closed = False
+    mock_session.close = AsyncMock()
+    mock_session.ws_connect.return_value = MockErrorWS()
+    monkeypatch.setattr(aiohttp, "ClientSession", lambda **kwargs: mock_session)
+
+    await connector.start()
+    await asyncio.sleep(0.02)
+    await connector.stop()
+
+    assert connector.status == ConnectionStatus.DISCONNECTED
