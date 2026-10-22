@@ -160,12 +160,94 @@ def test_connector_stream_url() -> None:
 
 
 @pytest.mark.asyncio
-async def test_connector_stop_lifecycle() -> None:
-    """Verifica que el método stop detenga el conector y pase a DISCONNECTED de forma limpia."""
+async def test_connector_stop_cancels_running_task() -> None:
+    """Verifica que stop() cancele una tarea activa en ejecución y suprima CancelledError."""
     connector = BinanceFuturesConnector(symbol="BTCUSDT")
-    assert connector.status == ConnectionStatus.DISCONNECTED
-    assert not connector.is_connected
 
+    async def infinite_mock_loop() -> None:
+        while True:
+            await asyncio.sleep(0.01)
+
+    connector._running = True
+    connector._task = asyncio.create_task(infinite_mock_loop())
+
+    await connector.stop()
+    assert connector._running is False
+    assert connector._task.done()
+    assert connector.status == ConnectionStatus.DISCONNECTED
+
+
+@pytest.mark.asyncio
+async def test_connector_run_loop_handles_ws_close_messages(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Verifica que mensajes WSMsgType.CLOSE cierren el stream sin error."""
+    connector = BinanceFuturesConnector(symbol="BTCUSDT")
+    connector.settings.ws_reconnect_min_delay_sec = 0.01
+
+    class MockCloseWS:
+        def __init__(self) -> None:
+            self.closed = False
+
+        async def __aenter__(self) -> "MockCloseWS":
+            return self
+
+        async def __aexit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
+            self.closed = True
+
+        def __aiter__(self) -> Any:
+            async def gen() -> Any:
+                connector._running = False
+                yield MagicMock(type=aiohttp.WSMsgType.CLOSE, data="")
+
+            return gen()
+
+    mock_session = MagicMock()
+    mock_session.closed = False
+    mock_session.close = AsyncMock()
+    mock_session.ws_connect.return_value = MockCloseWS()
+    monkeypatch.setattr(aiohttp, "ClientSession", lambda **kwargs: mock_session)
+
+    await connector.start()
+    await asyncio.sleep(0.02)
+    await connector.stop()
+    assert connector.status == ConnectionStatus.DISCONNECTED
+
+
+@pytest.mark.asyncio
+async def test_connector_run_loop_empty_ws_stream(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Verifica que un stream WS vacío termine la iteración limpiamente (línea 206->232)."""
+    connector = BinanceFuturesConnector(symbol="BTCUSDT")
+    connector.settings.ws_reconnect_min_delay_sec = 0.01
+
+    class MockEmptyWS:
+        def __init__(self) -> None:
+            self.closed = False
+
+        async def __aenter__(self) -> "MockEmptyWS":
+            return self
+
+        async def __aexit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
+            self.closed = True
+
+        def __aiter__(self) -> Any:
+            async def gen() -> Any:
+                connector._running = False
+                if False:
+                    yield None
+
+            return gen()
+
+    mock_session = MagicMock()
+    mock_session.closed = False
+    mock_session.close = AsyncMock()
+    mock_session.ws_connect.return_value = MockEmptyWS()
+    monkeypatch.setattr(aiohttp, "ClientSession", lambda **kwargs: mock_session)
+
+    await connector.start()
+    await asyncio.sleep(0.02)
     await connector.stop()
     assert connector.status == ConnectionStatus.DISCONNECTED
 
