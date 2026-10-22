@@ -1,5 +1,7 @@
 """Tests unitarios para las fórmulas de liquidación, tiers y agregación del heatmap."""
 
+from pathlib import Path
+
 import pytest
 
 from liqscope.engine.aggregator import HeatmapAggregator
@@ -287,3 +289,64 @@ def test_heatmap_volume_conservation() -> None:
     # Cada bin individual debe conservar que total == long + short
     for b in snapshot.bins:
         assert abs(b.estimated_volume_usd - (b.long_volume_usd + b.short_volume_usd)) < 0.05
+
+
+def test_exact_tier_formula_invalid_denominator() -> None:
+    """Verifica que un MMR >= 1.0 en LONG genere un denominador no positivo y lance ValueError (línea 90)."""
+    with pytest.raises(ValueError, match="Denominador inválido"):
+        calculate_exact_tier_liquidation_price(
+            entry_price=60_000.0,
+            leverage=10.0,
+            side=PositionSide.LONG,
+            maintenance_margin_rate=1.0,
+            cum_maintenance_amount=0.0,
+            quantity=1.0,
+        )
+
+
+def test_get_tier_for_notional_fallback_last_tier() -> None:
+    """Verifica que un nocional infinito o fuera de rango alcance el fallback return tiers[-1] (línea 170)."""
+    tier = get_tier_for_notional("BTCUSDT", float("inf"))
+    assert tier.tier == 5
+    assert tier.status == "PENDING_VERIFICATION"
+
+
+def test_aggregator_missing_config_file_uses_fallback(tmp_path: Path) -> None:
+    """Verifica el fallback por defecto si el archivo YAML no existe (líneas 31-32)."""
+    non_existent = tmp_path / "does_not_exist.yaml"
+    agg = HeatmapAggregator(config_path=non_existent)
+    weights = agg.get_leverage_weights_for_symbol("BTCUSDT")
+    assert weights[5.0] == 0.15
+    assert weights[100.0] == 0.10
+    assert "DEFAULT" in agg.distribution_weights
+
+
+def test_aggregator_config_without_default_key(tmp_path: Path) -> None:
+    """Verifica que si el YAML carece de clave DEFAULT, se inyecte el fallback predeterminado (línea 45)."""
+    cfg_file = tmp_path / "custom.yaml"
+    cfg_file.write_text(
+        "symbol_defaults:\n  CUSTOM:\n    leverage_distribution:\n      10.0: 1.0\n",
+        encoding="utf-8",
+    )
+    agg = HeatmapAggregator(config_path=cfg_file)
+    assert "DEFAULT" in agg.distribution_weights
+    assert agg.distribution_weights["DEFAULT"][10.0] == 0.25
+    assert agg.distribution_weights["CUSTOM"][10.0] == 1.0
+
+
+def test_aggregator_extreme_long_ratios() -> None:
+    """Verifica el cálculo cuando long_ratio es 0.0 (solo shorts) y 1.0 (solo longs) (líneas 74->93 y 94->71)."""
+    aggregator = HeatmapAggregator()
+    # long_ratio = 0.0 (long_volume <= 0 -> salta línea 74 a 93)
+    levels_all_short = aggregator.generate_liquidation_levels(
+        "BTCUSDT", current_price=60_000.0, total_open_interest_usd=100_000.0, long_ratio=0.0
+    )
+    assert len(levels_all_short) > 0
+    assert all(lvl.side == PositionSide.SHORT for lvl in levels_all_short)
+
+    # long_ratio = 1.0 (short_volume <= 0 -> salta línea 94 a fin de iteración)
+    levels_all_long = aggregator.generate_liquidation_levels(
+        "BTCUSDT", current_price=60_000.0, total_open_interest_usd=100_000.0, long_ratio=1.0
+    )
+    assert len(levels_all_long) > 0
+    assert all(lvl.side == PositionSide.LONG for lvl in levels_all_long)

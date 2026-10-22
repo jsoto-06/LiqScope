@@ -181,7 +181,7 @@ async def test_connector_stop_cancels_running_task() -> None:
 async def test_connector_run_loop_handles_ws_close_messages(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Verifica que mensajes WSMsgType.CLOSE cierren el stream sin error."""
+    """Verifica que mensajes WSMsgType.CLOSE cierren el stream sin error (líneas 211-213)."""
     connector = BinanceFuturesConnector(symbol="BTCUSDT")
     connector.settings.ws_reconnect_min_delay_sec = 0.01
 
@@ -194,10 +194,12 @@ async def test_connector_run_loop_handles_ws_close_messages(
 
         async def __aexit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
             self.closed = True
+            # Finalizar el bucle externo al salir del contexto
+            connector._running = False
 
         def __aiter__(self) -> Any:
             async def gen() -> Any:
-                connector._running = False
+                # Mantener _running=True para que el bucle procese la línea 211-213
                 yield MagicMock(type=aiohttp.WSMsgType.CLOSE, data="")
 
             return gen()
@@ -209,7 +211,7 @@ async def test_connector_run_loop_handles_ws_close_messages(
     monkeypatch.setattr(aiohttp, "ClientSession", lambda **kwargs: mock_session)
 
     await connector.start()
-    await asyncio.sleep(0.02)
+    await asyncio.sleep(0.03)
     await connector.stop()
     assert connector.status == ConnectionStatus.DISCONNECTED
 
@@ -412,7 +414,7 @@ async def test_connector_run_loop_handles_unexpected_exception(
 async def test_connector_run_loop_handles_ws_error_message(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Verifica que un mensaje de tipo WSMsgType.ERROR rompa el stream y no lance excepciones."""
+    """Verifica que un mensaje de tipo WSMsgType.ERROR rompa el stream y no lance excepciones (líneas 214-219)."""
     connector = BinanceFuturesConnector(symbol="BTCUSDT")
     connector.settings.ws_reconnect_min_delay_sec = 0.01
 
@@ -428,10 +430,12 @@ async def test_connector_run_loop_handles_ws_error_message(
 
         async def __aexit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
             self.closed = True
+            # Finalizar el bucle externo al salir del contexto
+            connector._running = False
 
         def __aiter__(self) -> Any:
             async def gen() -> Any:
-                connector._running = False
+                # Mantener _running=True para que el bucle procese las líneas 214-219
                 yield MagicMock(type=aiohttp.WSMsgType.ERROR, data="")
 
             return gen()
@@ -443,7 +447,45 @@ async def test_connector_run_loop_handles_ws_error_message(
     monkeypatch.setattr(aiohttp, "ClientSession", lambda **kwargs: mock_session)
 
     await connector.start()
-    await asyncio.sleep(0.02)
+    await asyncio.sleep(0.03)
     await connector.stop()
 
     assert connector.status == ConnectionStatus.DISCONNECTED
+
+
+def test_connector_is_connected_property() -> None:
+    """Verifica que la propiedad is_connected refleje el ConnectionStatus."""
+    connector = BinanceFuturesConnector(symbol="BTCUSDT")
+    assert connector.is_connected is False
+    connector._status = ConnectionStatus.CONNECTED
+    assert connector.is_connected is True
+    connector._status = ConnectionStatus.DISCONNECTED
+    assert connector.is_connected is False
+
+
+@pytest.mark.asyncio
+async def test_handle_raw_message_ignores_unparseable_events() -> None:
+    """Verifica que eventos de trade o liquidación corruptos no emitan llamadas a handlers."""
+    connector = BinanceFuturesConnector(symbol="BTCUSDT")
+    emitted_trades: list[Trade] = []
+    emitted_liqs: list[LiquidationEvent] = []
+
+    async def on_trade(t: Trade) -> None:
+        emitted_trades.append(t)
+
+    async def on_liq(liq_ev: LiquidationEvent) -> None:
+        emitted_liqs.append(liq_ev)
+
+    connector.register_trade_handler(on_trade)
+    connector.register_liquidation_handler(on_liq)
+
+    # aggTrade con precio inválido (línea 151->exit)
+    bad_trade = json.dumps({"e": "aggTrade", "s": "BTCUSDT", "p": "-10.0"})
+    await connector.handle_raw_message(bad_trade)
+
+    # forceOrder con datos inválidos (línea 155->exit)
+    bad_liq = json.dumps({"e": "forceOrder", "o": {"p": "-5.0"}})
+    await connector.handle_raw_message(bad_liq)
+
+    assert len(emitted_trades) == 0
+    assert len(emitted_liqs) == 0

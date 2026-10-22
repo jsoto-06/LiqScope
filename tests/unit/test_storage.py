@@ -1,6 +1,7 @@
 """Tests unitarios para el repositorio SQLite de almacenamiento."""
 
 from datetime import UTC, datetime
+from pathlib import Path
 
 import pytest
 
@@ -96,3 +97,15 @@ async def test_uninitialized_storage_raises_runtime_error() -> None:
 
     with pytest.raises(RuntimeError):
         await storage.get_recent_liquidations("BTCUSDT")
+
+
+@pytest.mark.asyncio
+async def test_sqlite_file_based_and_double_close(tmp_path: Path) -> None:
+    """Verifica la creación de directorio en disco y llamada idempotente a close() (líneas 25 y 73)."""
+    db_file = tmp_path / "subdir" / "test.db"
+    storage = SqliteStorageRepository(database_path=db_file)
+    await storage.initialize()
+    assert db_file.exists()
+    await storage.close()
+    # Segundo close cuando self._db is None (línea 73->exit)
+    await storage.close()

@@ -52,7 +52,7 @@ Para contratos lineales cotizados en USDT/USDC con precio de entrada $P_{\text{e
   - **URL:** [https://www.binance.com/en/futures/trading-rules/perpetual/leverage-margin](https://www.binance.com/en/futures/trading-rules/perpetual/leverage-margin)
   - **Fecha de Consulta:** `2026-10-22`
   - **Estado:** **`PENDING_VERIFICATION`** (La página web oficial de reglas de trading devuelve `HTTP 202 Accepted` con longitud 0 a clientes no interactivos por desafío anti-bot Cloudflare, por lo que no es posible extraer el texto literal mediante scripts).
-  - **Supuesto Operativo:** Todos los valores de MMR incorporados en `tiers.py` y en las pruebas (ej. 0.004 para BTC, 0.005 para ETH) se tratan formalmente como **supuestos analíticos de cálculo**, no como datos oficiales confirmados.
+  - **Retirada de tablas y Supuesto Operativo:** Se retiran todas las tablas de tiers de la documentación y de los informes. Todos los escalones numéricos en `tiers.py` y en las pruebas se definen con `status="PENDING_VERIFICATION"` y se tratan formalmente como **supuestos analíticos de cálculo**, no como datos oficiales confirmados.
 - **Bybit Linear:** [Bybit Margin & Risk Limit (USDT Perpetual)](https://www.bybit.com/en/help-center/article/Risk-Limit-USDT-Perpetual) — *(Diferido a Fase 3)*.
 - **Hyperliquid:** [Hyperliquid Documentation - Margin Requirements](https://hyperliquid.gitbook.io/hyperliquid-docs) — *(Diferido a Fase 3)*.
 
