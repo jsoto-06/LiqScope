@@ -40,6 +40,16 @@ def test_health_check(test_client: TestClient) -> None:
     assert resp.json() == {"status": "ok", "env": "test"}
 
 
+def test_index_dashboard(test_client: TestClient) -> None:
+    """Verifica que el dashboard visual responda en / con HTML 200."""
+    resp = test_client.get("/")
+    assert resp.status_code == 200
+    assert "text/html" in resp.headers["content-type"]
+    assert "LiqScope — Liquidation Heatmap" in resp.text
+    assert "BTCUSDT" in resp.text
+    assert "ETHUSDT" in resp.text
+
+
 def test_get_heatmap_btc_live_success_and_invariants(test_client: TestClient) -> None:
     """Verifica la consulta exitosa sin filtros de BTCUSDT con datos en vivo simulados."""
     mock_market_data = BinanceMarketData(

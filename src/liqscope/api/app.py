@@ -4,7 +4,9 @@ from __future__ import annotations
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import HTMLResponse
 
+from liqscope.api.dashboard import get_dashboard_html
 from liqscope.api.routes.heatmap import router as heatmap_router
 from liqscope.config import Settings
 
@@ -33,6 +35,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     # Inclusión de routers
     app.include_router(heatmap_router, prefix="/api/v1")
+
+    @app.get("/", response_class=HTMLResponse, include_in_schema=False)
+    async def index() -> HTMLResponse:
+        """Dashboard interactivo visual del Heatmap."""
+        return HTMLResponse(content=get_dashboard_html(), status_code=200)
 
     @app.get("/health", tags=["Health"])
     async def health_check() -> dict[str, str]:
