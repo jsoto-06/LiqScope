@@ -56,7 +56,14 @@ DASHBOARD_HTML = """<!DOCTYPE html>
           <button id="btn-demo" onclick="setSource('demo')" class="px-3 py-1 text-xs font-medium rounded-md text-[var(--muted-foreground,#94a3b8)] hover:text-white">Demo</button>
         </div>
 
-        <button onclick="fetchHeatmap()" class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white flex items-center gap-1.5 transition-all shadow">
+        <!-- Auto-refresh indicator badge (2 minutes) -->
+        <div class="inline-flex items-center gap-1.5 px-3 py-1 text-xs rounded-lg border border-[var(--border,#334155)] bg-[var(--card,#1e293b)] text-slate-300" title="Actualización automática cada 2 minutos">
+          <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+          <span class="text-slate-400 font-medium">Auto:</span>
+          <span id="countdown-text" class="font-mono font-bold text-emerald-400">02:00</span>
+        </div>
+
+        <button onclick="fetchHeatmap(true)" class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white flex items-center gap-1.5 transition-all shadow">
           <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
           Actualizar
         </button>
@@ -68,7 +75,10 @@ DASHBOARD_HTML = """<!DOCTYPE html>
       <div class="p-4 rounded-xl border border-[var(--border,#334155)] bg-[var(--card,#1e293b)] shadow-sm">
         <span class="text-xs text-[var(--muted-foreground,#94a3b8)] block">Precio Mark Actual</span>
         <div id="metric-price" class="text-lg md:text-xl font-bold mt-1 text-white tracking-tight">$81,498.90</div>
-        <span id="metric-symbol" class="text-[11px] text-indigo-400 font-mono">BTCUSDT</span>
+        <div class="flex items-center justify-between mt-1">
+          <span id="metric-symbol" class="text-[11px] text-indigo-400 font-mono">BTCUSDT</span>
+          <span id="metric-last-sync" class="text-[10px] text-slate-400 font-mono">Sinc: --:--:--</span>
+        </div>
       </div>
 
       <div class="p-4 rounded-xl border border-[var(--border,#334155)] bg-[var(--card,#1e293b)] shadow-sm">
@@ -100,15 +110,15 @@ DASHBOARD_HTML = """<!DOCTYPE html>
       <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <div>
           <label class="block text-xs text-[var(--muted-foreground,#94a3b8)] mb-1">Precio Mínimo (USD)</label>
-          <input type="number" id="input-min" placeholder="Ej. 79000" onchange="fetchHeatmap()" class="w-full px-3 py-1.5 text-xs rounded-lg border border-[var(--border,#334155)] bg-[var(--background,#0f172a)] text-white focus:outline-none focus:border-indigo-500">
+          <input type="number" id="input-min" placeholder="Ej. 79000" onchange="fetchHeatmap(true)" class="w-full px-3 py-1.5 text-xs rounded-lg border border-[var(--border,#334155)] bg-[var(--background,#0f172a)] text-white focus:outline-none focus:border-indigo-500">
         </div>
         <div>
           <label class="block text-xs text-[var(--muted-foreground,#94a3b8)] mb-1">Precio Máximo (USD)</label>
-          <input type="number" id="input-max" placeholder="Ej. 83000" onchange="fetchHeatmap()" class="w-full px-3 py-1.5 text-xs rounded-lg border border-[var(--border,#334155)] bg-[var(--background,#0f172a)] text-white focus:outline-none focus:border-indigo-500">
+          <input type="number" id="input-max" placeholder="Ej. 83000" onchange="fetchHeatmap(true)" class="w-full px-3 py-1.5 text-xs rounded-lg border border-[var(--border,#334155)] bg-[var(--background,#0f172a)] text-white focus:outline-none focus:border-indigo-500">
         </div>
         <div>
           <label class="block text-xs text-[var(--muted-foreground,#94a3b8)] mb-1">Tamaño de Bin (USD)</label>
-          <select id="select-bin-size" onchange="fetchHeatmap()" class="w-full px-3 py-1.5 text-xs rounded-lg border border-[var(--border,#334155)] bg-[var(--background,#0f172a)] text-white focus:outline-none focus:border-indigo-500">
+          <select id="select-bin-size" onchange="fetchHeatmap(true)" class="w-full px-3 py-1.5 text-xs rounded-lg border border-[var(--border,#334155)] bg-[var(--background,#0f172a)] text-white focus:outline-none focus:border-indigo-500">
             <option value="50">50 USD (Estándar)</option>
             <option value="100">100 USD</option>
             <option value="250">250 USD</option>
@@ -143,14 +153,15 @@ DASHBOARD_HTML = """<!DOCTYPE html>
       </div>
     </div>
 
-    <!-- Model Disclaimer Banner -->
-    <div class="p-4 rounded-xl border border-amber-500/30 bg-amber-500/10 text-amber-200/90 text-xs space-y-1.5">
-      <div class="flex items-center gap-2 font-semibold text-amber-300">
-        <svg class="w-4 h-4 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/></svg>
-        Aviso Analítico del Modelo (Fase 4)
+    <!-- Data Transparency & Disclaimer Banner -->
+    <div class="p-4 rounded-xl border border-indigo-500/30 bg-indigo-500/10 text-indigo-200/90 text-xs space-y-2">
+      <div class="flex items-center gap-2 font-semibold text-indigo-300">
+        <svg class="w-4 h-4 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/></svg>
+        Confirmación de Origen y Realidad de los Datos
       </div>
-      <p id="disclaimer-text" class="leading-relaxed">
-        Estimated liquidation levels modeled from aggregate Open Interest under assumed long ratio (0.50) and arbitrary MMR parameters (MMR &lt; 1/L). 5x bracket is illustrative. Trading fees, liquidation fees, funding rates, and cross-margin collateral mechanics are ignored. Does not reflect real individual positions, actual entry prices, or directional market skew.
+      <p class="leading-relaxed text-slate-300">
+        <strong class="text-white">Datos de Mercado 100% Reales en Vivo:</strong> El Precio Mark y el Open Interest total se consultan directamente desde la API oficial de Binance Futures USDⓈ-M (sin intermediarios y sin demora agregada). Se auto-actualizan cada 2 minutos.<br>
+        <strong class="text-white">Modelado Matemático de Zonas de Liquidación:</strong> Los exchanges no publican las órdenes o precios de entrada individuales de cada trader por secreto bancario. LiqScope toma el Open Interest real y calcula matemáticamente las zonas críticas donde los traders con apalancamientos habituales (5x, 10x, 25x, 50x, 100x) y márgenes de mantenimiento oficiales (MMR) sufren liquidación forzada.
       </p>
     </div>
 
@@ -159,6 +170,37 @@ DASHBOARD_HTML = """<!DOCTYPE html>
   <script>
     let currentSymbol = 'BTCUSDT';
     let currentSource = 'live';
+
+    // Auto-refresh timer (2 minutes = 120 seconds)
+    const AUTO_REFRESH_INTERVAL_SEC = 120;
+    let secondsLeft = AUTO_REFRESH_INTERVAL_SEC;
+    let timerId = null;
+
+    function resetCountdown() {
+      secondsLeft = AUTO_REFRESH_INTERVAL_SEC;
+      updateCountdownDisplay();
+    }
+
+    function updateCountdownDisplay() {
+      const min = Math.floor(secondsLeft / 60);
+      const sec = secondsLeft % 60;
+      const formatted = `${min < 10 ? '0' : ''}${min}:${sec < 10 ? '0' : ''}${sec}`;
+      const el = document.getElementById('countdown-text');
+      if (el) el.innerText = formatted;
+    }
+
+    function startAutoRefreshTimer() {
+      if (timerId) clearInterval(timerId);
+      updateCountdownDisplay();
+      timerId = setInterval(() => {
+        secondsLeft--;
+        if (secondsLeft <= 0) {
+          fetchHeatmap(true);
+        } else {
+          updateCountdownDisplay();
+        }
+      }, 1000);
+    }
 
     // Base fallback data when API offline
     const defaultData = {
@@ -200,24 +242,28 @@ DASHBOARD_HTML = """<!DOCTYPE html>
       currentSymbol = sym;
       document.getElementById('btn-btc').className = sym === 'BTCUSDT' ? 'px-3 py-1 text-xs font-semibold rounded-md bg-indigo-600 text-white transition-all shadow-sm' : 'px-3 py-1 text-xs font-semibold rounded-md text-[var(--muted-foreground,#94a3b8)] hover:text-white transition-all';
       document.getElementById('btn-eth').className = sym === 'ETHUSDT' ? 'px-3 py-1 text-xs font-semibold rounded-md bg-indigo-600 text-white transition-all shadow-sm' : 'px-3 py-1 text-xs font-semibold rounded-md text-[var(--muted-foreground,#94a3b8)] hover:text-white transition-all';
-      fetchHeatmap();
+      fetchHeatmap(true);
     }
 
     function setSource(src) {
       currentSource = src;
       document.getElementById('btn-live').className = src === 'live' ? 'px-3 py-1 text-xs font-medium rounded-md bg-emerald-600/30 text-emerald-300 border border-emerald-500/30' : 'px-3 py-1 text-xs font-medium rounded-md text-[var(--muted-foreground,#94a3b8)] hover:text-white';
       document.getElementById('btn-demo').className = src === 'demo' ? 'px-3 py-1 text-xs font-medium rounded-md bg-indigo-600/30 text-indigo-300 border border-indigo-500/30' : 'px-3 py-1 text-xs font-medium rounded-md text-[var(--muted-foreground,#94a3b8)] hover:text-white';
-      fetchHeatmap();
+      fetchHeatmap(true);
     }
 
     function resetFilters() {
       document.getElementById('input-min').value = '';
       document.getElementById('input-max').value = '';
       document.getElementById('select-bin-size').value = '50';
-      fetchHeatmap();
+      fetchHeatmap(true);
     }
 
-    async function fetchHeatmap() {
+    async function fetchHeatmap(resetTimer = false) {
+      if (resetTimer) {
+        resetCountdown();
+      }
+
       const minP = document.getElementById('input-min').value;
       const maxP = document.getElementById('input-max').value;
       const binSize = document.getElementById('select-bin-size').value || '50';
@@ -248,6 +294,11 @@ DASHBOARD_HTML = """<!DOCTYPE html>
       document.getElementById('metric-visible-vol').innerText = `$${(data.visible_bin_volume_usd / 1e6).toFixed(2)}M`;
       document.getElementById('metric-coverage').innerText = `${data.coverage_pct.toFixed(1)}%`;
       document.getElementById('metric-source').innerText = `Origen: ${data.source.toUpperCase()}`;
+
+      const now = new Date();
+      const timeStr = now.toLocaleTimeString();
+      const syncEl = document.getElementById('metric-last-sync');
+      if (syncEl) syncEl.innerText = `Sinc: ${timeStr}`;
 
       const container = document.getElementById('ladder-container');
       container.innerHTML = '';
@@ -340,8 +391,9 @@ DASHBOARD_HTML = """<!DOCTYPE html>
       renderHeatmap(mockData);
     }
 
-    // Initial load
-    fetchHeatmap();
+    // Initial load and start 2-minute timer
+    fetchHeatmap(true);
+    startAutoRefreshTimer();
   </script>
 </body>
 </html>

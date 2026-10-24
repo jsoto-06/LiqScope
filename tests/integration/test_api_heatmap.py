@@ -41,13 +41,15 @@ def test_health_check(test_client: TestClient) -> None:
 
 
 def test_index_dashboard(test_client: TestClient) -> None:
-    """Verifica que el dashboard visual responda en / con HTML 200."""
+    """Verifica que el dashboard visual responda en / con HTML 200 y temporizador de 2 minutos."""
     resp = test_client.get("/")
     assert resp.status_code == 200
     assert "text/html" in resp.headers["content-type"]
     assert "LiqScope — Liquidation Heatmap" in resp.text
     assert "BTCUSDT" in resp.text
     assert "ETHUSDT" in resp.text
+    assert "countdown-text" in resp.text
+    assert "AUTO_REFRESH_INTERVAL_SEC = 120" in resp.text
 
 
 def test_get_heatmap_btc_live_success_and_invariants(test_client: TestClient) -> None:
