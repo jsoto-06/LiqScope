@@ -89,3 +89,20 @@ Para soportar el **Modo Demo / Offline** y tests automatizados sin requerir cone
 > - **Estado actual:** El archivo real fue eliminado del árbol de trabajo en `64a8606` y sustituido íntegramente por fixtures con datos 100 % sintéticos e inventados (`fixtures/hyperliquid_clearinghouse_synthetic.json`).
 > - **Compromiso operativo:** Dicha dirección **no se vuelve a usar bajo ninguna circunstancia** en el código, pruebas, fixtures o documentación.
 > - **Política de reescritura:** Por instrucción expresa del usuario, **no se reescribirá el historial de Git** (`git reset --hard` / `git push --force`) sin su confirmación expresa previa.
+
+---
+
+## 6. Supuestos y Límites del Modelo Analítico de Liquidaciones (Fase 4)
+
+1. **Tasas de Margen de Mantenimiento (MMR) Arbitrarias:**
+   Los valores asignados por escalón (5x: 0.040, 10x: 0.020, 25x: 0.010, 50x: 0.005, 100x: 0.004) son **supuestos analíticos arbitrarios** calibrados matemáticamente para garantizar la condición estricta $\text{MMR} < 1/L$ ($\Delta = 1/L - \text{MMR} > 0$). No constituyen ni reflejan las tablas contractuales oficiales por tramos de nocional de Binance Futures.
+2. **Nivel 5x Ilustrativo:**
+   El nivel de apalancamiento de 5x se incluye con fines meramente pedagógicos e ilustrativos para modelar horizontes conservadores; no representa la estructura real de participantes institucionales.
+3. **Omisión de Comisiones y Margen Cruzado (Cross-Margin):**
+   El cálculo modela posiciones aisladas lineales asumiendo que todo el Open Interest entró exactamente al precio de marca actual ($P_{\text{entry}} = P_{\text{mark}}$). El modelo **ignora sistemáticamente**:
+   - Comisiones de apertura, cierre y corretaje por liquidación forzosa.
+   - Tasas de financiamiento acumuladas (*funding rate*).
+   - Efectos del margen cruzado (*cross-margin*), donde balances libres o colaterales multidivisa amortiguan el precio real de quiebra.
+4. **Supuesto de Simetría Neutra (`assumed_long_ratio = 0.50`):**
+   La partición al 50 % entre largos y cortos es un supuesto teórico de diseño. No refleja el sesgo direccional neto (*market skew*) ni el sentimiento real del libro de posiciones.
+

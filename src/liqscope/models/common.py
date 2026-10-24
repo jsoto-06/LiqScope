@@ -1,5 +1,7 @@
 """Modelos comunes y enumeraciones para LiqScope."""
 
+from __future__ import annotations
+
 from enum import StrEnum
 
 
@@ -35,6 +37,14 @@ class DataOrigin(StrEnum):
     REAL = "real"
     ESTIMATED = "estimated"
 
+    @classmethod
+    def _missing_(cls, value: object) -> DataOrigin | None:
+        if isinstance(value, str):
+            for member in cls:
+                if member.value.lower() == value.lower():
+                    return member
+        return None
+
 
 class DataCoverage(StrEnum):
     """Cobertura del flujo de datos según ADR-011."""
@@ -42,6 +52,14 @@ class DataCoverage(StrEnum):
     COMPLETE = "complete"
     SAMPLED = "sampled"
     NA = "na"
+
+    @classmethod
+    def _missing_(cls, value: object) -> DataCoverage | None:
+        if isinstance(value, str):
+            for member in cls:
+                if member.value.lower() == value.lower():
+                    return member
+        return None
 
 
 class DataSourceType(StrEnum):

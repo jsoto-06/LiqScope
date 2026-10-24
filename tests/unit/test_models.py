@@ -5,7 +5,13 @@ from datetime import UTC, datetime
 import pytest
 from pydantic import ValidationError
 
-from liqscope.models.common import DataOrigin, Exchange, PositionSide, TradeSide
+from liqscope.models.common import DataCoverage, DataOrigin, Exchange, PositionSide, TradeSide
+from liqscope.models.heatmap import (
+    DEFAULT_DISCLAIMER,
+    HeatmapBin,
+    HeatmapSnapshot,
+    LiquidationLevel,
+)
 from liqscope.models.liquidation import LiquidationEvent
 from liqscope.models.market import OpenInterestSnapshot, Trade
 
@@ -87,3 +93,75 @@ def test_open_interest_snapshot_valid() -> None:
     )
     assert oi.open_interest == 35000.5
     assert oi.symbol == "BTCUSDT"
+
+
+def test_data_origin_and_coverage_case_insensitive() -> None:
+    """Verifica que DataOrigin y DataCoverage admitan mayúsculas, minúsculas e invalidaciones."""
+    assert DataOrigin("MODELED") == DataOrigin.MODELED
+    assert DataOrigin("modeled") == DataOrigin.MODELED
+    assert DataCoverage("NA") == DataCoverage.NA
+    assert DataCoverage("na") == DataCoverage.NA
+
+    with pytest.raises(ValueError):
+        DataOrigin("invalid_origin")
+    with pytest.raises(ValueError):
+        DataOrigin(123)  # type: ignore[arg-type]
+    with pytest.raises(ValueError):
+        DataCoverage("invalid_coverage")
+    with pytest.raises(ValueError):
+        DataCoverage(123)  # type: ignore[arg-type]
+
+
+def test_heatmap_models_defaults_and_validation() -> None:
+    """Verifica los valores predeterminados y restricciones de los modelos del Heatmap."""
+    level = LiquidationLevel(
+        price=80000.0,
+        volume_usd=500000.0,
+        leverage=50.0,
+        side=PositionSide.LONG,
+    )
+    assert level.origin == DataOrigin.MODELED
+
+    bin_cell = HeatmapBin(
+        price_min=80000.0,
+        price_max=80050.0,
+        price_mid=80025.0,
+        estimated_volume_usd=500000.0,
+    )
+    assert bin_cell.origin == DataOrigin.MODELED
+    assert bin_cell.coverage == DataCoverage.NA
+    assert bin_cell.long_volume_usd == 0.0
+    assert bin_cell.short_volume_usd == 0.0
+
+    snapshot = HeatmapSnapshot(
+        symbol="BTCUSDT",
+        current_price=81500.0,
+        bin_size=50.0,
+        bins=[bin_cell],
+        total_open_interest_usd=1000000.0,
+        visible_bin_volume_usd=500000.0,
+        coverage_pct=50.0,
+    )
+    assert snapshot.assumed_long_ratio == 0.50
+    assert snapshot.source == "live"
+    assert snapshot.disclaimer == DEFAULT_DISCLAIMER
+    assert snapshot.is_complete is True
+
+    # Validación de límites para coverage_pct y assumed_long_ratio
+    with pytest.raises(ValidationError):
+        HeatmapSnapshot(
+            symbol="BTCUSDT",
+            current_price=81500.0,
+            bin_size=50.0,
+            bins=[],
+            coverage_pct=105.0,  # > 100
+        )
+
+    with pytest.raises(ValidationError):
+        HeatmapSnapshot(
+            symbol="BTCUSDT",
+            current_price=81500.0,
+            bin_size=50.0,
+            bins=[],
+            assumed_long_ratio=1.5,  # > 1.0
+        )
