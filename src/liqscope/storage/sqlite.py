@@ -66,6 +66,13 @@ class SqliteStorageRepository(BaseStorageRepository):
             CREATE INDEX IF NOT EXISTS idx_liquidations_symbol_ts
             ON liquidations (symbol, timestamp DESC);
         """)
+
+        # Migración idempotente de filas legadas según ADR-011
+        await self._db.execute("""
+            UPDATE liquidations
+            SET origin = 'observed'
+            WHERE origin IN ('real', 'estimated');
+        """)
         await self._db.commit()
 
     async def close(self) -> None:

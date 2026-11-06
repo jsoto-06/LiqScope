@@ -66,7 +66,7 @@ def test_parse_force_order_sell(recorded_messages: dict[str, dict[str, Any]]) ->
     assert liq.quantity == 2.500
     assert liq.filled_quantity == 2.500
     assert liq.usd_volume == 68100.00 * 2.500
-    assert liq.origin == DataOrigin.ESTIMATED
+    assert liq.origin == DataOrigin.OBSERVED
     assert liq.coverage == DataCoverage.SAMPLED
 
 
@@ -83,7 +83,7 @@ def test_parse_force_order_buy(recorded_messages: dict[str, dict[str, Any]]) -> 
     assert liq.quantity == 1.800
     assert liq.filled_quantity == 1.800
     assert liq.usd_volume == 68900.00 * 1.800
-    assert liq.origin == DataOrigin.ESTIMATED
+    assert liq.origin == DataOrigin.OBSERVED
     assert liq.coverage == DataCoverage.SAMPLED
 
 

@@ -7,11 +7,11 @@ from pydantic import BaseModel, ConfigDict, Field
 from liqscope.models.common import DataCoverage, DataOrigin, PositionSide
 
 DEFAULT_DISCLAIMER: str = (
-    "Estimated liquidation levels modeled from aggregate Open Interest under assumed "
-    "long ratio (0.50) and arbitrary MMR parameters (MMR < 1/L). 5x bracket is "
-    "illustrative. Trading fees, liquidation fees, funding rates, and cross-margin "
-    "collateral mechanics are ignored. Does not reflect real individual positions, "
-    "actual entry prices, or directional market skew."
+    "Niveles de liquidación estimados modelados a partir de Open Interest agregado bajo el "
+    "supuesto de assumed_long_ratio = 0.50 y parámetros arbitrarios de MMR (MMR < 1/L). El tramo "
+    "5x es ilustrativo. Se ignoran comisiones de trading, comisiones de liquidación, tasas de "
+    "financiación y mecánicas de colateral de margen cruzado. No refleja posiciones individuales "
+    "reales, precios de entrada reales ni sesgo direccional del mercado."
 )
 
 
@@ -26,7 +26,7 @@ class LiquidationLevel(BaseModel):
     side: PositionSide = Field(description="Dirección de la posición liquidada (LONG o SHORT)")
     origin: DataOrigin = Field(
         default=DataOrigin.MODELED,
-        description="Origen del dato (REAL, ESTIMATED o MODELED)",
+        description="Origen del dato (OBSERVED o MODELED)",
     )
 
 
@@ -59,7 +59,7 @@ class HeatmapBin(BaseModel):
     )
     origin: DataOrigin = Field(
         default=DataOrigin.MODELED,
-        description="Origen del dato (REAL, ESTIMATED o MODELED)",
+        description="Origen del dato (OBSERVED o MODELED)",
     )
     coverage: DataCoverage = Field(
         default=DataCoverage.NA,
@@ -109,6 +109,15 @@ class HeatmapSnapshot(BaseModel):
     disclaimer: str = Field(
         default=DEFAULT_DISCLAIMER,
         description="Aviso analítico y advertencia de supuestos del modelo",
+    )
+    cached: bool = Field(
+        default=False,
+        description="Indica si los datos de mercado fueron obtenidos de la caché local",
+    )
+    data_age_sec: float = Field(
+        default=0.0,
+        ge=0,
+        description="Antigüedad en segundos de los datos de mercado utilizados",
     )
     total_estimated_volume_usd: float = Field(
         default=0.0,

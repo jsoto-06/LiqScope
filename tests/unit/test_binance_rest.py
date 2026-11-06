@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from typing import Any
 from unittest.mock import MagicMock
 
@@ -60,11 +61,16 @@ def test_symbol_validation_and_unsupported_error() -> None:
     assert err.symbol == "SOLUSDT"
     assert err.status_code == 400
     assert err.source == "live"
+    assert err.code == "UNSUPPORTED_SYMBOL"
     assert "BTCUSDT" in err.message
     assert err.to_dict() == {
-        "error": err.message,
-        "status_code": 400,
-        "source": "live",
+        "error": {
+            "code": "UNSUPPORTED_SYMBOL",
+            "message": err.message,
+            "source": "live",
+            "symbol": "SOLUSDT",
+            "details": f"Supported symbols: {sorted(['BTCUSDT', 'ETHUSDT'])}",
+        }
     }
 
 
@@ -160,7 +166,8 @@ async def test_rate_limit_errors_429_and_418() -> None:
     assert err.status_code == 429
     assert err.retry_after == 45
     assert err.source == "live"
-    assert err.to_dict()["retry_after"] == 45
+    assert err.code == "BINANCE_RATE_LIMIT_EXCEEDED"
+    assert err.to_dict()["error"]["retry_after"] == 45
 
     # Caso 418 IP auto-banned sin Retry-After numérico
     mock_session.get.return_value = MockResponse(
@@ -172,8 +179,9 @@ async def test_rate_limit_errors_429_and_418() -> None:
         await client.get_premium_index("ETHUSDT")
 
     assert exc_418.value.status_code == 418
+    assert exc_418.value.code == "BINANCE_IP_BANNED"
     assert exc_418.value.retry_after is None
-    assert "retry_after" not in exc_418.value.to_dict()
+    assert "retry_after" not in exc_418.value.to_dict()["error"]
 
 
 @pytest.mark.asyncio
@@ -233,12 +241,17 @@ async def test_network_and_timeout_errors() -> None:
     with pytest.raises(BinanceRestError) as exc_timeout:
         await client.get_open_interest("BTCUSDT")
     assert exc_timeout.value.status_code == 504
+    assert exc_timeout.value.code == "BINANCE_GATEWAY_TIMEOUT"
+    assert "agotado" in exc_timeout.value.message
+    assert not exc_timeout.value.message.endswith(": ")
 
     # Connection error
     mock_session.get.side_effect = aiohttp.ClientConnectionError("Host unreachable")
     with pytest.raises(BinanceRestError) as exc_conn:
         await client.get_premium_index("BTCUSDT")
     assert exc_conn.value.status_code == 503
+    assert exc_conn.value.code == "BINANCE_CONNECTION_ERROR"
+    assert "Error de conexión de red" in exc_conn.value.message
 
 
 @pytest.mark.asyncio
@@ -256,3 +269,200 @@ async def test_session_lifecycle_and_context_manager() -> None:
     client_ext = BinanceFuturesRestClient(session=external_session)
     await client_ext.close()
     external_session.close.assert_not_called()
+
+
+@pytest.mark.parametrize("invalid_timeout", [0.0, -1.0, -5.0])
+def test_binance_client_invalid_timeout_raises_value_error(invalid_timeout: float) -> None:
+    """Verifica que un timeout <= 0 en el cliente REST lance ValueError al inicializarse."""
+    with pytest.raises(ValueError) as exc_info:
+        BinanceFuturesRestClient(timeout_sec=invalid_timeout)
+    assert "estrictamente positivo" in str(exc_info.value)
+
+
+@pytest.mark.asyncio
+async def test_market_data_cache_hit_and_clear() -> None:
+    """Verifica que la segunda llamada dentro del TTL use la caché y clear_cache la reinicie usando reloj inyectado."""
+    mock_session = MagicMock(spec=aiohttp.ClientSession)
+    mock_session.closed = False
+    fake_json_oi = {"symbol": "BTCUSDT", "openInterest": "95000.0", "time": 1729630000000}
+    fake_json_pi = {"symbol": "BTCUSDT", "markPrice": "80000.0", "time": 1729630000000}
+
+    def side_effect(url: str, params: dict[str, str]) -> MockResponse:
+        if "openInterest" in url:
+            return MockResponse(status=200, json_data=fake_json_oi)
+        return MockResponse(status=200, json_data=fake_json_pi)
+
+    mock_session.get.side_effect = side_effect
+    BinanceFuturesRestClient.clear_cache()
+
+    # Reloj inyectado determinista sin time.sleep
+    current_time = 1000.0
+
+    def mock_clock() -> float:
+        return current_time
+
+    client = BinanceFuturesRestClient(session=mock_session, cache_ttl_sec=10.0, clock=mock_clock)
+
+    # 1. Primera llamada (t=1000.0): cache miss -> 2 peticiones salientes
+    d1 = await client.get_market_data("BTCUSDT")
+    assert d1.cached is False
+    assert d1.data_age_sec == 0.0
+    assert mock_session.get.call_count == 2
+
+    # 2. Segunda llamada con reloj avanzado (t=1003.5): cache hit dentro de TTL (10s) -> 0 peticiones adicionales
+    current_time = 1003.5
+    d2 = await client.get_market_data("BTCUSDT")
+    assert d2.cached is True
+    assert d2.data_age_sec == 3.5
+    assert mock_session.get.call_count == 2
+
+    # 3. Limpiar caché -> siguiente llamada es cache miss -> 2 peticiones adicionales (total 4)
+    BinanceFuturesRestClient.clear_cache()
+    d3 = await client.get_market_data("BTCUSDT")
+    assert d3.cached is False
+    assert d3.data_age_sec == 0.0
+    assert mock_session.get.call_count == 4
+
+    # 4. Avanzar reloj más allá de TTL (t=1015.0 > 10.0s) -> cache miss -> 2 peticiones adicionales (total 6)
+    current_time = 1015.0
+    d_exp = await client.get_market_data("BTCUSDT")
+    assert d_exp.cached is False
+    assert d_exp.data_age_sec == 0.0
+    assert mock_session.get.call_count == 6
+
+
+@pytest.mark.asyncio
+async def test_market_data_cache_ttl_expiration() -> None:
+    """Verifica expiración precisa de TTL y conteo exacto de peticiones salientes por llamada sin time.sleep."""
+    mock_session = MagicMock(spec=aiohttp.ClientSession)
+    mock_session.closed = False
+    fake_json_oi = {"symbol": "BTCUSDT", "openInterest": "95000.0", "time": 1729630000000}
+    fake_json_pi = {"symbol": "BTCUSDT", "markPrice": "80000.0", "time": 1729630000000}
+
+    def side_effect(url: str, params: dict[str, str]) -> MockResponse:
+        if "openInterest" in url:
+            return MockResponse(status=200, json_data=fake_json_oi)
+        return MockResponse(status=200, json_data=fake_json_pi)
+
+    mock_session.get.side_effect = side_effect
+    BinanceFuturesRestClient.clear_cache()
+
+    # Reloj inyectado determinista sin time.sleep
+    simulated_now = 5000.0
+
+    def mock_clock() -> float:
+        return simulated_now
+
+    client = BinanceFuturesRestClient(session=mock_session, cache_ttl_sec=10.0, clock=mock_clock)
+
+    # Llamada 1 (t=5000.0): Miss inicial -> 2 peticiones salientes
+    d1 = await client.get_market_data("BTCUSDT")
+    assert d1.cached is False
+    assert d1.data_age_sec == 0.0
+    assert mock_session.get.call_count == 2
+
+    # Llamada 2 (t=5004.5): Dentro de TTL (10.0s) -> 0 peticiones salientes adicionales (total 2)
+    simulated_now = 5004.5
+    d2 = await client.get_market_data("BTCUSDT")
+    assert d2.cached is True
+    assert d2.data_age_sec == 4.5
+    assert mock_session.get.call_count == 2
+
+    # Llamada 3 (t=5011.0): TTL expirado (>10.0s) -> 2 peticiones salientes adicionales (total 4)
+    simulated_now = 5011.0
+    d3 = await client.get_market_data("BTCUSDT")
+    assert d3.cached is False
+    assert d3.data_age_sec == 0.0
+    assert mock_session.get.call_count == 4
+
+
+@pytest.mark.asyncio
+async def test_market_data_cache_single_flight_concurrent_10() -> None:
+    """Verifica coalescencia single-flight: 10 llamadas concurrentes generan exactamente 2 peticiones salientes."""
+    mock_session = MagicMock(spec=aiohttp.ClientSession)
+    mock_session.closed = False
+    fake_json_oi = {"symbol": "BTCUSDT", "openInterest": "95000.0", "time": 1729630000000}
+    fake_json_pi = {"symbol": "BTCUSDT", "markPrice": "80000.0", "time": 1729630000000}
+
+    async def delayed_side_effect(url: str, params: dict[str, str]) -> MockResponse:
+        await asyncio.sleep(0.02)  # Simula latencia para solapar las 10 llamadas concurrentes
+        if "openInterest" in url:
+            return MockResponse(status=200, json_data=fake_json_oi)
+        return MockResponse(status=200, json_data=fake_json_pi)
+
+    # Convertir get en callable asíncrono con context manager MockResponse
+    class AsyncMockResponse(MockResponse):
+        async def __aenter__(self) -> AsyncMockResponse:
+            await asyncio.sleep(0.02)
+            return self
+
+    def async_side_effect(url: str, params: dict[str, str]) -> AsyncMockResponse:
+        if "openInterest" in url:
+            return AsyncMockResponse(status=200, json_data=fake_json_oi)
+        return AsyncMockResponse(status=200, json_data=fake_json_pi)
+
+    mock_session.get.side_effect = async_side_effect
+    BinanceFuturesRestClient.clear_cache()
+    client = BinanceFuturesRestClient(session=mock_session, cache_ttl_sec=5.0)
+
+    # 10 tareas concurrentes solicitando el mismo símbolo en paralelo
+    tasks = [client.get_market_data("BTCUSDT") for _ in range(10)]
+    results = await asyncio.gather(*tasks)
+
+    assert len(results) == 10
+    for r in results:
+        assert r.symbol == "BTCUSDT"
+        assert r.mark_price == 80000.0
+        assert r.open_interest == 95000.0
+
+    # Verificación crítica: Exactamente 2 peticiones salientes a Binance para las 10 llamadas (1 OI + 1 MarkPrice)
+    assert mock_session.get.call_count == 2
+    cached_hits = sum(1 for r in results if r.cached is True)
+    assert cached_hits >= 9
+
+
+@pytest.mark.asyncio
+async def test_market_data_cache_error_not_cached() -> None:
+    """Verifica que respuestas de error upstream (502, 504, 429) no se almacenen en caché."""
+    mock_session = MagicMock(spec=aiohttp.ClientSession)
+    mock_session.closed = False
+
+    call_index = 0
+
+    def error_then_success_effect(url: str, params: dict[str, str]) -> MockResponse:
+        nonlocal call_index
+        call_index += 1
+        if call_index == 1:
+            # Primer intento falla con error HTTP 502 de upstream
+            return MockResponse(status=502, text_data="Bad Gateway from Binance")
+        if "openInterest" in url:
+            return MockResponse(
+                status=200,
+                json_data={"symbol": "BTCUSDT", "openInterest": "95000.0", "time": 1729630000000},
+            )
+        return MockResponse(
+            status=200,
+            json_data={"symbol": "BTCUSDT", "markPrice": "80000.0", "time": 1729630000000},
+        )
+
+    mock_session.get.side_effect = error_then_success_effect
+    BinanceFuturesRestClient.clear_cache()
+    client = BinanceFuturesRestClient(session=mock_session, cache_ttl_sec=5.0)
+
+    # 1. Llamada fallida: debe lanzar BinanceRestError
+    with pytest.raises(BinanceRestError) as exc_info:
+        await client.get_market_data("BTCUSDT")
+    assert exc_info.value.status_code == 502
+    assert mock_session.get.call_count == 2
+
+    # 2. Verificar que la caché quedó COMPLETAMENTE VACÍA (no-caché para errores)
+    assert "BTCUSDT" not in BinanceFuturesRestClient._market_data_cache
+
+    # 3. Llamada posterior recuperada: debe ejecutar peticiones frescas y tener éxito
+    d_recovered = await client.get_market_data("BTCUSDT")
+    assert d_recovered.symbol == "BTCUSDT"
+    assert d_recovered.cached is False
+    assert d_recovered.data_age_sec == 0.0
+    # Se realizaron 2 peticiones adicionales (total 3: 1 fallida + 2 recuperadas)
+    assert mock_session.get.call_count == 4
+    assert "BTCUSDT" in BinanceFuturesRestClient._market_data_cache

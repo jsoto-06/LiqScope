@@ -122,7 +122,7 @@ class BinanceFuturesConnector(DataSource):
                 filled_quantity=filled_qty,
                 usd_volume=usd_volume,
                 timestamp=timestamp,
-                origin=DataOrigin.ESTIMATED,
+                origin=DataOrigin.OBSERVED,
                 coverage=DataCoverage.SAMPLED,
             )
         except (KeyError, ValueError, TypeError, ValidationError) as exc:

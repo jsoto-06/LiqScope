@@ -99,7 +99,7 @@ cp .env.example .env
 | `BINANCE_FUTURES_BASE_URL` | URL de la API de Binance Futures | `https://fapi.binance.com` | URL REST oficial o mock |
 | `SERVER_HOST` | Host para el servidor HTTP | `0.0.0.0` | IP local o `127.0.0.1` |
 | `SERVER_PORT` | Puerto de escucha | `8000` | Entero (ej. `8000`, `8080`) |
-| `CORS_ORIGINS` | Orígenes permitidos (CORS) | `["*"]` | Lista JSON de dominios |
+| `LIQSCOPE_CORS_ORIGINS` | Orígenes permitidos (CORS) | `["http://localhost:5173", "http://127.0.0.1:5173"]` | Lista JSON de dominios explícitos |
 | `STORAGE_BACKEND` | Base de datos | `sqlite` | `sqlite`, `postgres` |
 | `DATABASE_PATH` | Ruta de base de datos SQLite | `liqscope.db` | Ruta a archivo local |
 
@@ -179,7 +179,7 @@ py -3.12 -m pytest --cov=liqscope --cov-report=term-missing
 
 One of the most important questions regarding liquidation heatmaps is whether the displayed data is **real**:
 
-#### What data is 100% REAL and Live?
+#### What data is 100% Live (OBSERVED)?
 * **Real-time Mark Price (`mark_price`):** Fetched directly from official **Binance Futures USDⓈ-M** production servers (`https://fapi.binance.com/fapi/v1/premiumIndex`).
 * **Total Open Interest (`total_open_interest_usd`):** Official real aggregate volume of open futures contracts on the exchange right now (`https://fapi.binance.com/fapi/v1/openInterest`). Currently represents billions of USD (e.g., ~95,000 BTC or ~$7,700M USD).
 * **Official Margin Parameters (MMR):** Maintenance Margin Rate brackets based on official Binance leverage tiers.
@@ -258,7 +258,7 @@ cp .env.example .env
 | `BINANCE_FUTURES_BASE_URL` | Binance Futures API Base URL | `https://fapi.binance.com` | Official REST URL or mock |
 | `SERVER_HOST` | HTTP server host binding | `0.0.0.0` | Local IP or `127.0.0.1` |
 | `SERVER_PORT` | Listening port | `8000` | Integer (e.g. `8000`, `8080`) |
-| `CORS_ORIGINS` | Allowed CORS origins | `["*"]` | JSON list of domains |
+| `LIQSCOPE_CORS_ORIGINS` | Allowed CORS origins | `["http://localhost:5173", "http://127.0.0.1:5173"]` | JSON list of explicit domains |
 | `STORAGE_BACKEND` | Storage engine | `sqlite` | `sqlite`, `postgres` |
 | `DATABASE_PATH` | SQLite database file path | `liqscope.db` | Local file path |
 

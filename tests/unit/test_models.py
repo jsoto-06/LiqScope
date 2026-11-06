@@ -75,13 +75,13 @@ def test_liquidation_event_model_valid() -> None:
         filled_quantity=1.5,
         usd_volume=101250.0,
         timestamp=now,
-        origin=DataOrigin.ESTIMATED,
+        origin=DataOrigin.OBSERVED,
     )
     assert liq.exchange == Exchange.BINANCE
     assert liq.symbol == "BTCUSDT"
     assert liq.side == PositionSide.LONG
     assert liq.usd_volume == 101250.0
-    assert liq.origin == DataOrigin.ESTIMATED
+    assert liq.origin == DataOrigin.OBSERVED
 
 
 def test_open_interest_snapshot_valid() -> None:

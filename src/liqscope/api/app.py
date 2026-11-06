@@ -8,6 +8,7 @@ from fastapi.responses import HTMLResponse
 
 from liqscope.api.dashboard import get_dashboard_html
 from liqscope.api.routes.heatmap import router as heatmap_router
+from liqscope.api.routes.symbols import router as symbols_router
 from liqscope.config import Settings
 
 
@@ -28,13 +29,14 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         app.add_middleware(
             CORSMiddleware,
             allow_origins=cfg.cors_origins,
-            allow_credentials=True,
+            allow_credentials=cfg.cors_allow_credentials,
             allow_methods=["*"],
             allow_headers=["*"],
         )
 
-    # Inclusión de routers
+    # Inclusión de routers canónicos versionados (/api/v1)
     app.include_router(heatmap_router, prefix="/api/v1")
+    app.include_router(symbols_router, prefix="/api/v1")
 
     @app.get("/", response_class=HTMLResponse, include_in_schema=False)
     async def index() -> HTMLResponse:

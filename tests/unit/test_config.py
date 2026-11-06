@@ -16,7 +16,7 @@ def test_default_settings() -> None:
     assert settings.ws_reconnect_min_delay_sec == 1.0
     assert settings.ws_reconnect_max_delay_sec == 60.0
     assert settings.ws_reconnect_jitter == 0.25
-    assert settings.http_request_timeout_sec == 10.0
+    assert settings.http_request_timeout_sec == 5.0
     assert settings.stale_data_threshold_sec == 30.0
 
 
@@ -114,3 +114,27 @@ def test_invalid_ws_url_raises_validation_error(invalid_url: str) -> None:
     with pytest.raises(ValidationError) as exc_info:
         Settings(binance_ws_url=invalid_url)
     assert "iniciar con ws:// o wss://" in str(exc_info.value)
+
+
+def test_cors_wildcard_with_credentials_raises_validation_error() -> None:
+    """Verifica que el comodín '*' en cors_origins con allow_credentials=True sea rechazado."""
+    with pytest.raises(ValidationError) as exc_info:
+        Settings(cors_origins=["*"], cors_allow_credentials=True)
+    assert "Configuración CORS insegura: No se permite '*'" in str(exc_info.value)
+
+
+def test_cors_wildcard_allowed_when_credentials_false() -> None:
+    """Verifica que con cors_allow_credentials=False sí se permite comodín '*'."""
+    cfg_safe = Settings(cors_origins=["*"], cors_allow_credentials=False)
+    assert cfg_safe.cors_origins == ["*"]
+    assert cfg_safe.cors_allow_credentials is False
+
+
+def test_cors_explicit_origins_with_credentials_allowed() -> None:
+    """Verifica que dominios explícitos con allow_credentials=True sean válidos."""
+    cfg = Settings(
+        cors_origins=["http://localhost:5173", "https://app.example.com"],
+        cors_allow_credentials=True,
+    )
+    assert len(cfg.cors_origins) == 2
+    assert cfg.cors_allow_credentials is True

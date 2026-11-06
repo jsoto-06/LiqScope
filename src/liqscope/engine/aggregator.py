@@ -90,6 +90,8 @@ def build_heatmap_snapshot(
     max_price: float | None = None,
     assumed_long_ratio: float = 0.50,
     source: str = "live",
+    cached: bool = False,
+    data_age_sec: float = 0.0,
 ) -> HeatmapSnapshot:
     """Construye un snapshot de mapa de calor en bins agregados con filtrado atómico por rango."""
     sym = symbol.upper()
@@ -181,6 +183,8 @@ def build_heatmap_snapshot(
         assumed_long_ratio=assumed_long_ratio,
         source=source,
         disclaimer=DEFAULT_DISCLAIMER,
+        cached=cached,
+        data_age_sec=round(data_age_sec, 2),
         total_estimated_volume_usd=round(visible_volume, 2),
         is_complete=True,
     )

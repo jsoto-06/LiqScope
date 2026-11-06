@@ -24,11 +24,15 @@ class Settings(BaseSettings):
         default=Environment.DEMO,
         description="Entorno de ejecución: demo, development, production, test",
     )
-    host: str = Field(default="0.0.0.0", description="Host de enlace para el servidor API")
+    host: str = Field(default="127.0.0.1", description="Host de enlace para el servidor API")
     port: int = Field(default=8000, description="Puerto TCP del servidor (1-65535)")
     cors_origins: list[str] = Field(
         default_factory=lambda: ["http://localhost:5173", "http://127.0.0.1:5173"],
         description="Orígenes CORS permitidos",
+    )
+    cors_allow_credentials: bool = Field(
+        default=True,
+        description="Permitir cookies y credenciales en peticiones CORS",
     )
 
     # Logging
@@ -80,8 +84,12 @@ class Settings(BaseSettings):
         description="Factor de jitter aleatorio [0.0, 1.0] para evitar tormentas de reconexión",
     )
     http_request_timeout_sec: float = Field(
-        default=10.0,
+        default=5.0,
         description="Timeout máximo en segundos para llamadas REST",
+    )
+    market_data_cache_ttl_sec: float = Field(
+        default=10.0,
+        description="Tiempo de vida (TTL) en segundos para la caché en memoria de Binance",
     )
     stale_data_threshold_sec: float = Field(
         default=30.0,
@@ -114,6 +122,7 @@ class Settings(BaseSettings):
         "ws_reconnect_min_delay_sec",
         "ws_reconnect_max_delay_sec",
         "http_request_timeout_sec",
+        "market_data_cache_ttl_sec",
         "stale_data_threshold_sec",
     )
     @classmethod
@@ -140,6 +149,16 @@ class Settings(BaseSettings):
             raise ValueError(
                 f"ws_reconnect_max_delay_sec ({self.ws_reconnect_max_delay_sec}) debe ser mayor o igual "
                 f"que ws_reconnect_min_delay_sec ({self.ws_reconnect_min_delay_sec})"
+            )
+        return self
+
+    @model_validator(mode="after")
+    def validate_cors_security(self) -> Self:
+        """Rechaza comodín '*' en cors_origins cuando cors_allow_credentials está activo."""
+        if self.cors_allow_credentials and "*" in self.cors_origins:
+            raise ValueError(
+                "Configuración CORS insegura: No se permite '*' en 'cors_origins' "
+                "cuando 'cors_allow_credentials' está habilitado (riesgo de fuga de credenciales)."
             )
         return self
 

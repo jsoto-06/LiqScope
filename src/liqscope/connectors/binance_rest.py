@@ -11,6 +11,8 @@ Gestión de errores: HTTP 429/418 (Rate Limit) y respuestas unificadas con campo
 from __future__ import annotations
 
 import asyncio
+import time
+from collections.abc import Callable
 from typing import Any, Self
 
 import aiohttp
@@ -30,6 +32,10 @@ class BinanceMarketData(BaseModel):
     open_interest_time: int = Field(description="Timestamp Unix en ms devuelto por openInterest")
     premium_index_time: int = Field(description="Timestamp Unix en ms devuelto por premiumIndex")
     source: str = Field(default="live", description="Origen de los datos ('live' o 'demo')")
+    cached: bool = Field(default=False, description="Indica si proviene de la caché en memoria")
+    data_age_sec: float = Field(
+        default=0.0, ge=0, description="Antigüedad en segundos de los datos"
+    )
 
 
 class BinanceRestError(Exception):
@@ -38,21 +44,32 @@ class BinanceRestError(Exception):
     def __init__(
         self,
         message: str,
+        code: str = "BINANCE_ERROR",
         status_code: int | None = None,
         source: str = "live",
+        symbol: str | None = None,
+        details: str | None = None,
     ) -> None:
         super().__init__(message)
         self.message = message
+        self.code = code
         self.status_code = status_code
         self.source = source
+        self.symbol = symbol
+        self.details = details
 
     def to_dict(self) -> dict[str, Any]:
-        """Estructura normalizada de error con campo source uniforme."""
-        return {
-            "error": self.message,
-            "status_code": self.status_code,
+        """Estructura normalizada de error con esquema contratado."""
+        err_body: dict[str, Any] = {
+            "code": self.code,
+            "message": self.message,
             "source": self.source,
         }
+        if self.symbol is not None:
+            err_body["symbol"] = self.symbol
+        if self.details is not None:
+            err_body["details"] = self.details
+        return {"error": err_body}
 
 
 class BinanceRateLimitError(BinanceRestError):
@@ -60,18 +77,28 @@ class BinanceRateLimitError(BinanceRestError):
 
     def __init__(
         self,
-        message: str = "Binance rate limit exceeded",
+        message: str = "Límite de peticiones de Binance alcanzado",
+        code: str = "BINANCE_RATE_LIMIT_EXCEEDED",
         status_code: int = 429,
         retry_after: int | None = None,
         source: str = "live",
+        symbol: str | None = None,
+        details: str | None = None,
     ) -> None:
-        super().__init__(message=message, status_code=status_code, source=source)
+        super().__init__(
+            message=message,
+            code=code,
+            status_code=status_code,
+            source=source,
+            symbol=symbol,
+            details=details,
+        )
         self.retry_after = retry_after
 
     def to_dict(self) -> dict[str, Any]:
         data = super().to_dict()
         if self.retry_after is not None:
-            data["retry_after"] = self.retry_after
+            data["error"]["retry_after"] = self.retry_after
         return data
 
 
@@ -81,6 +108,7 @@ class UnsupportedSymbolError(BinanceRestError):
     def __init__(
         self,
         symbol: str,
+        code: str = "UNSUPPORTED_SYMBOL",
         status_code: int = 400,
         source: str = "live",
     ) -> None:
@@ -88,23 +116,53 @@ class UnsupportedSymbolError(BinanceRestError):
             f"Símbolo no soportado en esta fase: '{symbol}'. "
             f"Solo se admiten: {', '.join(sorted(SUPPORTED_SYMBOLS))}."
         )
-        super().__init__(message=message, status_code=status_code, source=source)
-        self.symbol = symbol
+        super().__init__(
+            message=message,
+            code=code,
+            status_code=status_code,
+            source=source,
+            symbol=symbol,
+            details=f"Supported symbols: {sorted(SUPPORTED_SYMBOLS)}",
+        )
 
 
 class BinanceFuturesRestClient:
     """Cliente HTTP asíncrono para consultar Open Interest y Mark Price en Binance Futures."""
 
+    _market_data_cache: dict[str, tuple[BinanceMarketData, float]] = {}
+    _fetch_locks: dict[str, asyncio.Lock] = {}
+
+    @classmethod
+    def _get_fetch_lock(cls, symbol: str) -> asyncio.Lock:
+        if symbol not in cls._fetch_locks:
+            cls._fetch_locks[symbol] = asyncio.Lock()
+        return cls._fetch_locks[symbol]
+
     def __init__(
         self,
         base_url: str = "https://fapi.binance.com",
         session: aiohttp.ClientSession | None = None,
-        timeout_sec: float = 10.0,
+        timeout_sec: float = 5.0,
+        cache_ttl_sec: float = 10.0,
+        clock: Callable[[], float] = time.time,
     ) -> None:
+        if timeout_sec <= 0:
+            raise ValueError(
+                f"timeout_sec debe ser estrictamente positivo (>0), recibido: {timeout_sec}"
+            )
         self.base_url = base_url.rstrip("/")
         self._session = session
         self._owns_session = session is None
+        self.timeout_sec = timeout_sec
+        self.cache_ttl_sec = cache_ttl_sec
+        self.clock = clock
         self.timeout = aiohttp.ClientTimeout(total=timeout_sec)
+
+    @classmethod
+    def clear_cache(cls) -> None:
+        """Limpia la caché en memoria de datos de mercado y reinicia bloqueos."""
+        cls._market_data_cache.clear()
+        cls._fetch_locks.clear()
 
     async def __aenter__(self) -> Self:
         await self._ensure_session()
@@ -140,6 +198,7 @@ class BinanceFuturesRestClient:
         """Ejecuta una petición GET y gestiona códigos de respuesta de Binance."""
         session = await self._ensure_session()
         url = f"{self.base_url}{path}"
+        sym = params.get("symbol")
 
         try:
             async with session.get(url, params=params) as resp:
@@ -148,8 +207,11 @@ class BinanceFuturesRestClient:
                     data = await resp.json()
                     if not isinstance(data, dict):
                         raise BinanceRestError(
-                            f"Respuesta inesperada de Binance (no dict): {data}",
+                            message=f"Respuesta inesperada de Binance (no dict): {data}",
+                            code="BINANCE_MALFORMED_RESPONSE",
                             status_code=status,
+                            symbol=sym,
+                            details=f"Formato no reconocido: {data}",
                         )
                     return data
 
@@ -160,28 +222,50 @@ class BinanceFuturesRestClient:
                         int(retry_header) if retry_header and retry_header.isdigit() else None
                     )
                     text = await resp.text()
+                    code = "BINANCE_RATE_LIMIT_EXCEEDED" if status == 429 else "BINANCE_IP_BANNED"
                     raise BinanceRateLimitError(
-                        message=f"Límite de peticiones de Binance alcanzado (HTTP {status}): {text}",
+                        message=f"Límite de peticiones de Binance alcanzado (HTTP {status})",
+                        code=code,
                         status_code=status,
                         retry_after=retry_after,
+                        symbol=sym,
+                        details=text if text else None,
                     )
 
                 text = await resp.text()
                 raise BinanceRestError(
-                    message=f"Error en endpoint de Binance ({status}): {text}",
+                    message=f"Error en endpoint de Binance ({status})",
+                    code="BINANCE_UPSTREAM_ERROR",
                     status_code=status,
+                    symbol=sym,
+                    details=text if text else None,
                 )
         except (BinanceRestError, UnsupportedSymbolError):
             raise
         except TimeoutError as e:
+            err_msg = str(e).strip()
+            formatted_sec = f"{self.timeout_sec:.1f}"
+            details = (
+                f"Timeout después de {formatted_sec} segundos"
+                if not err_msg
+                else f"Timeout: {err_msg}"
+            )
             raise BinanceRestError(
-                message=f"Timeout de red al conectar con Binance: {e}",
+                message="Tiempo de espera agotado al conectar con Binance Futures",
+                code="BINANCE_GATEWAY_TIMEOUT",
                 status_code=504,
+                symbol=sym,
+                details=details,
             ) from e
         except aiohttp.ClientError as e:
+            err_msg = str(e).strip()
+            details = f"{type(e).__name__}: {err_msg}".rstrip(": ")
             raise BinanceRestError(
-                message=f"Error de conexión de red con Binance: {e}",
+                message="Error de conexión de red con Binance Futures",
+                code="BINANCE_CONNECTION_ERROR",
                 status_code=503,
+                symbol=sym,
+                details=details if details else None,
             ) from e
 
     async def get_open_interest(self, symbol: str) -> tuple[float, int]:
@@ -198,8 +282,11 @@ class BinanceFuturesRestClient:
             return oi, time_ms
         except (KeyError, ValueError, TypeError) as e:
             raise BinanceRestError(
-                f"Formato no válido en respuesta de openInterest: {data}",
+                message="Formato no válido en respuesta de openInterest",
+                code="BINANCE_MALFORMED_RESPONSE",
                 status_code=502,
+                symbol=sym,
+                details=f"Error al procesar openInterest: {type(e).__name__}: {e}",
             ) from e
 
     async def get_premium_index(self, symbol: str) -> tuple[float, int]:
@@ -216,22 +303,71 @@ class BinanceFuturesRestClient:
             return mark_price, time_ms
         except (KeyError, ValueError, TypeError) as e:
             raise BinanceRestError(
-                f"Formato no válido en respuesta de premiumIndex: {data}",
+                message="Formato no válido en respuesta de premiumIndex",
+                code="BINANCE_MALFORMED_RESPONSE",
                 status_code=502,
+                symbol=sym,
+                details=f"Error al procesar premiumIndex: {type(e).__name__}: {e}",
             ) from e
 
-    async def get_market_data(self, symbol: str) -> BinanceMarketData:
-        """Consulta de forma concurrente openInterest y premiumIndex para el símbolo."""
+    async def get_market_data(
+        self,
+        symbol: str,
+        ttl_sec: float | None = None,
+    ) -> BinanceMarketData:
+        """Consulta openInterest y premiumIndex con soporte de caché TTL y single-flight en memoria."""
         sym = self.validate_symbol(symbol)
-        (oi, oi_time), (mark_price, pi_time) = await asyncio.gather(
-            self.get_open_interest(sym),
-            self.get_premium_index(sym),
-        )
-        return BinanceMarketData(
-            symbol=sym,
-            mark_price=mark_price,
-            open_interest=oi,
-            open_interest_time=oi_time,
-            premium_index_time=pi_time,
-            source="live",
-        )
+        effective_ttl = self.cache_ttl_sec if ttl_sec is None else ttl_sec
+        now = self.clock()
+
+        if effective_ttl > 0 and sym in self._market_data_cache:
+            cached_data, fetched_at = self._market_data_cache[sym]
+            age = now - fetched_at
+            if age < effective_ttl:
+                return BinanceMarketData(
+                    symbol=cached_data.symbol,
+                    mark_price=cached_data.mark_price,
+                    open_interest=cached_data.open_interest,
+                    open_interest_time=cached_data.open_interest_time,
+                    premium_index_time=cached_data.premium_index_time,
+                    source=cached_data.source,
+                    cached=True,
+                    data_age_sec=round(age, 2),
+                )
+
+        # Single-flight: sincronización para peticiones concurrentes del mismo símbolo
+        lock = self._get_fetch_lock(sym)
+        async with lock:
+            now = self.clock()
+            if effective_ttl > 0 and sym in self._market_data_cache:
+                cached_data, fetched_at = self._market_data_cache[sym]
+                age = now - fetched_at
+                if age < effective_ttl:
+                    return BinanceMarketData(
+                        symbol=cached_data.symbol,
+                        mark_price=cached_data.mark_price,
+                        open_interest=cached_data.open_interest,
+                        open_interest_time=cached_data.open_interest_time,
+                        premium_index_time=cached_data.premium_index_time,
+                        source=cached_data.source,
+                        cached=True,
+                        data_age_sec=round(age, 2),
+                    )
+
+            # Si falla la llamada upstream, la excepción se propaga y la caché NO se actualiza (no-caché para errores)
+            (oi, oi_time), (mark_price, pi_time) = await asyncio.gather(
+                self.get_open_interest(sym),
+                self.get_premium_index(sym),
+            )
+            data = BinanceMarketData(
+                symbol=sym,
+                mark_price=mark_price,
+                open_interest=oi,
+                open_interest_time=oi_time,
+                premium_index_time=pi_time,
+                source="live",
+                cached=False,
+                data_age_sec=0.0,
+            )
+            self._market_data_cache[sym] = (data, now)
+            return data

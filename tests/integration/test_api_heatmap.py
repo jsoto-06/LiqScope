@@ -178,14 +178,16 @@ def test_unsupported_symbol_returns_400(test_client: TestClient) -> None:
     resp = test_client.get("/api/v1/heatmap/SOLUSDT")
     assert resp.status_code == 400
     data = resp.json()
-    assert data["status_code"] == 400
-    assert data["source"] == "live"
-    assert "SOLUSDT" in data["error"]
+    assert "error" in data
+    assert data["error"]["code"] == "UNSUPPORTED_SYMBOL"
+    assert data["error"]["source"] == "live"
+    assert "SOLUSDT" in data["error"]["message"]
 
     resp_demo = test_client.get("/api/v1/heatmap/DOGEUSDT?source=demo")
     assert resp_demo.status_code == 400
     data_demo = resp_demo.json()
-    assert data_demo["source"] == "demo"
+    assert data_demo["error"]["source"] == "demo"
+    assert data_demo["error"]["code"] == "UNSUPPORTED_SYMBOL"
 
 
 def test_invalid_range_min_greater_than_max(test_client: TestClient) -> None:
@@ -193,9 +195,10 @@ def test_invalid_range_min_greater_than_max(test_client: TestClient) -> None:
     resp = test_client.get("/api/v1/heatmap/BTCUSDT?min_price=85000&max_price=80000")
     assert resp.status_code == 400
     data = resp.json()
-    assert data["status_code"] == 400
-    assert "no puede ser mayor" in data["error"]
-    assert data["source"] == "live"
+    assert "error" in data
+    assert data["error"]["code"] == "INVALID_PRICE_RANGE"
+    assert "no puede ser mayor" in data["error"]["message"]
+    assert data["error"]["source"] == "live"
 
 
 def test_rate_limit_429_forwarded(test_client: TestClient) -> None:
@@ -203,6 +206,7 @@ def test_rate_limit_429_forwarded(test_client: TestClient) -> None:
     mock_client = AsyncMock(spec=BinanceFuturesRestClient)
     mock_client.get_market_data.side_effect = BinanceRateLimitError(
         message="Too many requests to Binance",
+        code="BINANCE_RATE_LIMIT_EXCEEDED",
         status_code=429,
         retry_after=60,
     )
@@ -216,9 +220,10 @@ def test_rate_limit_429_forwarded(test_client: TestClient) -> None:
         assert resp.status_code == 429
         assert resp.headers.get("retry-after") == "60"
         data = resp.json()
-        assert data["status_code"] == 429
-        assert data["retry_after"] == 60
-        assert data["source"] == "live"
+        assert "error" in data
+        assert data["error"]["code"] == "BINANCE_RATE_LIMIT_EXCEEDED"
+        assert data["error"]["retry_after"] == 60
+        assert data["error"]["source"] == "live"
     finally:
         app.dependency_overrides.clear()
 
@@ -228,6 +233,7 @@ def test_rate_limit_418_forwarded(test_client: TestClient) -> None:
     mock_client = AsyncMock(spec=BinanceFuturesRestClient)
     mock_client.get_market_data.side_effect = BinanceRateLimitError(
         message="IP auto-banned",
+        code="BINANCE_IP_BANNED",
         status_code=418,
     )
 
@@ -239,8 +245,9 @@ def test_rate_limit_418_forwarded(test_client: TestClient) -> None:
         resp = test_client.get("/api/v1/heatmap/BTCUSDT")
         assert resp.status_code == 418
         data = resp.json()
-        assert data["status_code"] == 418
-        assert data["source"] == "live"
+        assert "error" in data
+        assert data["error"]["code"] == "BINANCE_IP_BANNED"
+        assert data["error"]["source"] == "live"
     finally:
         app.dependency_overrides.clear()
 
@@ -250,6 +257,7 @@ def test_binance_rest_error_and_unexpected_crash(test_client: TestClient) -> Non
     mock_client = AsyncMock(spec=BinanceFuturesRestClient)
     mock_client.get_market_data.side_effect = BinanceRestError(
         message="Binance 502 Bad Gateway",
+        code="BINANCE_UPSTREAM_ERROR",
         status_code=502,
     )
 
@@ -261,16 +269,19 @@ def test_binance_rest_error_and_unexpected_crash(test_client: TestClient) -> Non
         resp = test_client.get("/api/v1/heatmap/BTCUSDT")
         assert resp.status_code == 502
         data = resp.json()
-        assert data["status_code"] == 502
-        assert data["source"] == "live"
+        assert "error" in data
+        assert data["error"]["code"] == "BINANCE_UPSTREAM_ERROR"
+        assert data["error"]["source"] == "live"
 
         # Excepción genérica inesperada
         mock_client.get_market_data.side_effect = RuntimeError("Fatal connection loss")
         resp_crash = test_client.get("/api/v1/heatmap/BTCUSDT")
         assert resp_crash.status_code == 500
         data_crash = resp_crash.json()
-        assert data_crash["status_code"] == 500
-        assert "Fatal connection loss" in data_crash["error"]
+        assert "error" in data_crash
+        assert data_crash["error"]["code"] == "INTERNAL_SERVER_ERROR"
+        assert "Fatal connection loss" in data_crash["error"]["message"]
+        assert data_crash["error"]["source"] == "live"
     finally:
         app.dependency_overrides.clear()
 
@@ -304,3 +315,139 @@ def test_create_app_without_cors() -> None:
     client = TestClient(app)
     resp = client.get("/health")
     assert resp.status_code == 200
+
+
+def test_live_timeout_against_silent_local_server() -> None:
+    """Fuerza un timeout real contra un socket TCP local no bloqueante y verifica respuesta 504 literal."""
+    import select
+    import socket
+    import threading
+    import time
+
+    from liqscope.api.routes.heatmap import get_settings
+
+    server_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    server_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    server_sock.bind(("127.0.0.1", 0))
+    server_sock.listen(1)
+    server_sock.setblocking(False)  # Socket explícitamente no bloqueante
+    port = server_sock.getsockname()[1]
+
+    connection_accepted = threading.Event()
+    stop_event = threading.Event()
+    accepted_client_addr: list[tuple[str, int]] = []
+    server_errors: list[Exception] = []
+
+    def silent_server() -> None:
+        conn: socket.socket | None = None
+        try:
+            readable, _, _ = select.select([server_sock], [], [], 2.0)
+            if readable:
+                conn, addr = server_sock.accept()
+                accepted_client_addr.append(addr)
+                connection_accepted.set()  # Prueba irrefutable de que el servidor aceptó la conexión TCP
+                stop_event.wait(timeout=2.0)
+        except OSError as exc:
+            server_errors.append(exc)
+        finally:
+            if conn is not None:
+                conn.close()
+            server_sock.close()
+
+    thread = threading.Thread(target=silent_server, daemon=True)
+    thread.start()
+
+    try:
+        cfg = Settings(
+            env=Environment.TEST,
+            binance_rest_url=f"http://127.0.0.1:{port}",
+            http_request_timeout_sec=0.2,
+        )
+        app = create_app(settings=cfg)
+        app.dependency_overrides[get_settings] = lambda: cfg
+        client = TestClient(app)
+
+        t0 = time.time()
+        resp = client.get("/api/v1/heatmap/BTCUSDT?source=live")
+        elapsed = time.time() - t0
+
+        # Verificaciones estrictas:
+        # 1. El servidor aceptó la conexión TCP (no es conexión rechazada / ECONNREFUSED)
+        assert server_errors == [], f"Errores inesperados en socket servidor: {server_errors}"
+        assert connection_accepted.is_set(), "El servidor local no llegó a aceptar la conexión TCP"
+        assert len(accepted_client_addr) == 1
+        # 2. El cliente abortó por timeout (HTTP 504 con código de contrato BINANCE_GATEWAY_TIMEOUT)
+        assert resp.status_code == 504
+        assert elapsed < 1.0
+        data = resp.json()
+        assert "error" in data
+        assert data["error"]["code"] == "BINANCE_GATEWAY_TIMEOUT"
+        assert (
+            data["error"]["message"] == "Tiempo de espera agotado al conectar con Binance Futures"
+        )
+        assert data["error"]["source"] == "live"
+        assert data["error"]["symbol"] == "BTCUSDT"
+        assert data["error"]["details"] == "Timeout después de 0.2 segundos"
+    finally:
+        stop_event.set()
+        thread.join(timeout=1.0)
+
+
+def test_heatmap_cache_hit_in_api() -> None:
+    """Verifica que llamadas consecutivas a /api/v1/heatmap reflejen cached=True y data_age_sec."""
+    BinanceFuturesRestClient.clear_cache()
+    mock_market_data = BinanceMarketData(
+        symbol="BTCUSDT",
+        mark_price=80000.0,
+        open_interest=95000.0,
+        open_interest_time=1729630000000,
+        premium_index_time=1729630005000,
+        source="live",
+        cached=False,
+        data_age_sec=0.0,
+    )
+    mock_client = AsyncMock(spec=BinanceFuturesRestClient)
+    d_hit = BinanceMarketData(
+        symbol="BTCUSDT",
+        mark_price=80000.0,
+        open_interest=95000.0,
+        open_interest_time=1729630000000,
+        premium_index_time=1729630005000,
+        source="live",
+        cached=True,
+        data_age_sec=1.2,
+    )
+    mock_client.get_market_data.side_effect = [mock_market_data, d_hit]
+
+    app = create_app(settings=Settings(env=Environment.TEST))
+    app.dependency_overrides[get_binance_client] = lambda: mock_client
+    client = TestClient(app)
+
+    try:
+        r1 = client.get("/api/v1/heatmap/BTCUSDT")
+        assert r1.status_code == 200
+        assert r1.json()["cached"] is False
+        assert r1.json()["data_age_sec"] == 0.0
+
+        r2 = client.get("/api/v1/heatmap/BTCUSDT")
+        assert r2.status_code == 200
+        assert r2.json()["cached"] is True
+        assert r2.json()["data_age_sec"] == 1.2
+    finally:
+        app.dependency_overrides.clear()
+        BinanceFuturesRestClient.clear_cache()
+
+
+def test_get_symbols_endpoints(test_client: TestClient) -> None:
+    """Verifica que GET /api/v1/symbols devuelva la forma aprobada y no exista alias no versionado."""
+    resp = test_client.get("/api/v1/symbols")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert isinstance(data, list)
+    assert len(data) == 2
+    assert data[0] == {"symbol": "BTCUSDT", "default_bin_size": 50.0}
+    assert data[1] == {"symbol": "ETHUSDT", "default_bin_size": 10.0}
+
+    # El alias sin versión /symbols fue eliminado según decisión de arquitectura REST
+    resp_unversioned = test_client.get("/symbols")
+    assert resp_unversioned.status_code == 404

@@ -34,8 +34,6 @@ class DataOrigin(StrEnum):
 
     OBSERVED = "observed"
     MODELED = "modeled"
-    REAL = "real"
-    ESTIMATED = "estimated"
 
     @classmethod
     def _missing_(cls, value: object) -> DataOrigin | None:

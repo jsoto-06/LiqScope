@@ -35,6 +35,7 @@ async def get_binance_client(
     async with BinanceFuturesRestClient(
         base_url=settings.binance_rest_url,
         timeout_sec=settings.http_request_timeout_sec,
+        cache_ttl_sec=settings.market_data_cache_ttl_sec,
     ) as client:
         yield client
 
@@ -87,12 +88,16 @@ async def get_heatmap(
         return JSONResponse(
             status_code=status.HTTP_400_BAD_REQUEST,
             content={
-                "error": (
-                    f"Símbolo no soportado en esta fase: '{symbol}'. "
-                    f"Solo se admiten: {', '.join(sorted(SUPPORTED_SYMBOLS))}."
-                ),
-                "status_code": 400,
-                "source": source,
+                "error": {
+                    "code": "UNSUPPORTED_SYMBOL",
+                    "message": (
+                        f"Símbolo no soportado en esta fase: '{symbol}'. "
+                        f"Solo se admiten: {', '.join(sorted(SUPPORTED_SYMBOLS))}."
+                    ),
+                    "symbol": symbol,
+                    "source": source,
+                    "details": f"Supported symbols: {sorted(SUPPORTED_SYMBOLS)}",
+                }
             },
         )
 
@@ -100,9 +105,13 @@ async def get_heatmap(
         return JSONResponse(
             status_code=status.HTTP_400_BAD_REQUEST,
             content={
-                "error": f"min_price ({min_price}) no puede ser mayor que max_price ({max_price}).",
-                "status_code": 400,
-                "source": source,
+                "error": {
+                    "code": "INVALID_PRICE_RANGE",
+                    "message": f"min_price ({min_price}) no puede ser mayor que max_price ({max_price}).",
+                    "symbol": normalized_sym,
+                    "source": source,
+                    "details": "min_price > max_price",
+                }
             },
         )
 
@@ -118,6 +127,8 @@ async def get_heatmap(
             open_interest_time=1729630000000,
             premium_index_time=1729630000000,
             source="demo",
+            cached=False,
+            data_age_sec=0.0,
         )
     else:
         try:
@@ -127,7 +138,8 @@ async def get_heatmap(
             if e.retry_after is not None:
                 headers["Retry-After"] = str(e.retry_after)
             err_dict = e.to_dict()
-            err_dict["source"] = source
+            err_dict["error"]["source"] = source
+            err_dict["error"].setdefault("symbol", normalized_sym)
             rate_status = (
                 e.status_code if e.status_code is not None else status.HTTP_429_TOO_MANY_REQUESTS
             )
@@ -138,7 +150,8 @@ async def get_heatmap(
             )
         except (BinanceRestError, UnsupportedSymbolError) as e:
             err_dict = e.to_dict()
-            err_dict["source"] = source
+            err_dict["error"]["source"] = source
+            err_dict["error"].setdefault("symbol", normalized_sym)
             status_code = (
                 e.status_code if e.status_code is not None else status.HTTP_502_BAD_GATEWAY
             )
@@ -150,9 +163,13 @@ async def get_heatmap(
             return JSONResponse(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 content={
-                    "error": f"Error inesperado al obtener datos de mercado: {e}",
-                    "status_code": 500,
-                    "source": source,
+                    "error": {
+                        "code": "INTERNAL_SERVER_ERROR",
+                        "message": f"Error inesperado al obtener datos de mercado: {e}",
+                        "symbol": normalized_sym,
+                        "source": source,
+                        "details": f"{type(e).__name__}: {e}",
+                    }
                 },
             )
 
@@ -168,4 +185,6 @@ async def get_heatmap(
         max_price=max_price,
         assumed_long_ratio=assumed_long_ratio,
         source=market_data.source,
+        cached=market_data.cached,
+        data_age_sec=market_data.data_age_sec,
     )

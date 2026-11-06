@@ -1,22 +1,21 @@
 # Supuestos del Modelo Matemático y Fuentes — LiqScope
 
 > [!IMPORTANT]
-> Todo dato calculado o presentado en el mapa de calor de LiqScope es una **ESTIMACIÓN** analítica con fines informativos. No representa una orden garantizada ni asesoramiento financiero.
+> Niveles de liquidación estimados modelados a partir de Open Interest agregado bajo el supuesto de assumed_long_ratio = 0.50 y parámetros arbitrarios de MMR (MMR < 1/L). El tramo 5x es ilustrativo. Se ignoran comisiones de trading, comisiones de liquidación, tasas de financiación y mecánicas de colateral de margen cruzado. No refleja posiciones individuales reales, precios de entrada reales ni sesgo direccional del mercado.
 
 ---
 
 ## 1. Clasificación del Origen de Datos (`DataOrigin`)
 
-El modelo diferencia estrictamente entre dos naturalezas de datos según el exchange emisor:
+El modelo clasifica el origen de los datos según el ADR-011 en dos categorías epistemológicas estrictas:
 
-1. **Datos Reales (`REAL`):**
-   - **Fuente:** Hyperliquid L1/L2 On-Chain Info API (`https://api.hyperliquid.xyz/info`).
-   - **Fundamento:** Al ser un exchange perpetuo descentralizado con libro de órdenes on-chain y liquidación programática, el estado del margen, apalancamiento exacto, tamaño y precio de liquidación de las cuentas es público y verificable en el estado del clearinghouse.
-   - **Restricción y Supuesto Operativo de Hyperliquid:** La API oficial de Hyperliquid (`clearinghouseState`) **requiere consultar direcciones de billetera específicas** (`{"type": "clearinghouseState", "user": "0x..."}`) y no ofrece un volcado global anónimo de todas las posiciones abiertas del exchange en una sola llamada. Por lo tanto, el mapa de liquidaciones reales de Hyperliquid en LiqScope se basa en el seguimiento de un conjunto seleccionado de **direcciones conocidas** (traders líderes del leaderboard, bóvedas históricas o cuentas descubiertas mediante trades recientes) y representa la muestra verificable de dichas cuentas, no el universo absoluto no indexado.
-2. **Datos Estimados (`ESTIMATED`):**
-   - **Fuentes:** Binance Futures USDT-M y Bybit Linear.
-   - **Fundamento:** Los CEX centralizados no publican los libros de posiciones individuales abiertas por motivos de privacidad comercial. Publican el Open Interest global, el flujo de operaciones (trades) y los eventos forzados de liquidación ejecutados (`forceOrder`).
-   - **Limitación y Supuesto de `forceOrder` en Binance (NO VERIFICADA):** La cifra de frecuencia de **1000 ms** y la premisa de entrega de únicamente la liquidación más grande por segundo proceden de referencias habituales pero **carecen de cita literal verificable**, dado que la página web oficial de documentación (`developers.binance.com`) devuelve `HTTP 202` (desafío anti-bot Cloudflare). Por tanto, se etiqueta formalmente como **supuesto no verificado**. En consecuencia, el volumen público de `forceOrder` se trata operativamente como un muestreo conservador (límite inferior) del volumen total liquidado en Binance, no el 100 % absoluto, y la masa de posiciones vivas por rango de precio se aproxima estadísticamente mediante el motor.
+1. **Datos Observados (`OBSERVED`):**
+   - **Fuentes:** Eventos de liquidación forzosa emitidos por los WebSockets de los exchanges (Binance `forceOrder`, Bybit `allLiquidation`) y telemetría directa de mercado.
+   - **Fundamento:** Información emitida por el exchange y recibida directamente sin modelado matemático interpolado.
+   - **Limitación y Supuesto de `forceOrder` en Binance (NO VERIFICADA):** La cifra de frecuencia de **1000 ms** y la premisa de entrega de únicamente la liquidación más grande por segundo proceden de referencias habituales pero **carecen de cita literal verificable**, dado que la página web oficial de documentación (`developers.binance.com`) devuelve `HTTP 202` (desafío anti-bot Cloudflare). Por tanto, se etiqueta formalmente como **supuesto no verificado**. En consecuencia, el volumen público de `forceOrder` se trata operativamente como un muestreo conservador (límite inferior) del volumen total liquidado en Binance, no el 100 % absoluto.
+2. **Datos Modelados (`MODELED`):**
+   - **Fuentes:** Mapa de calor analítico de liquidaciones (Heatmap).
+   - **Fundamento:** Distribución teórica del Open Interest agregado a través de escalones de apalancamiento supuestos y tasas de margen de mantenimiento arbitrarias (MMR < 1/L).
 
 ---
 
@@ -106,3 +105,16 @@ Para soportar el **Modo Demo / Offline** y tests automatizados sin requerir cone
 4. **Supuesto de Simetría Neutra (`assumed_long_ratio = 0.50`):**
    La partición al 50 % entre largos y cortos es un supuesto teórico de diseño. No refleja el sesgo direccional neto (*market skew*) ni el sentimiento real del libro de posiciones.
 
+
+
+---
+
+## 7. Estrategia de Caché de Datos de Mercado y Telemetría (`cached`, `data_age_sec`)
+
+Para cumplir con el presupuesto de tasa de Binance Futures (2.400 weight/min) y prevenir denegación de servicio o bloqueos HTTP 429/418 ante peticiones concurrentes:
+
+1. **Caché en Memoria con TTL (Time To Live):**
+   - Las consultas de mercado (`markPrice` y `openInterest`) se almacenan en una caché en memoria por símbolo con un TTL configurable predeterminado de **10.0 segundos** (`market_data_cache_ttl_sec`).
+2. **Telemetría en la Respuesta de la API:**
+   - **`cached` (`bool`):** Indica si los datos de mercado utilizados para modelar el snapshot fueron recuperados de la caché local (`true`) o consultados en vivo a Binance en dicha petición (`false`).
+   - **`data_age_sec` (`float`):** Tiempo transcurrido en segundos (con precisión decimal) desde que los datos de mercado fueron obtenidos del exchange remoto hasta la emisión de la respuesta actual. Si los datos fueron obtenidos en la petición activa, `data_age_sec = 0.0`.

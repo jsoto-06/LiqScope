@@ -221,7 +221,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
       <!-- Controls Strip: Bin Selector & Quick Leverage Chips -->
       <div class="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-2 bg-surface-container-low border border-surface-container-high p-2.5 rounded-xl">
 
-        <div class="flex items-center gap-2">
+        <div class="flex flex-wrap items-center gap-2">
           <span class="text-[10px] font-mono text-outline uppercase tracking-wider flex items-center gap-1">
             <span class="material-symbols-outlined text-[14px] text-primary-container">tune</span>
             Bins:
@@ -448,7 +448,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
         </p>
       </div>
 
-      <!-- SECTION: 100% REAL LIVE TELEMETRY -->
+      <!-- SECTION: 100% LIVE TELEMETRY (OBSERVED) -->
       <div class="flex flex-col space-y-2.5">
         <div class="flex items-center justify-between px-1">
           <div class="flex items-center gap-2">
@@ -900,6 +900,19 @@ DASHBOARD_HTML = """<!DOCTYPE html>
       document.getElementById('visible-vol-badge').innerText = `Volumen Visible: $${(data.visible_bin_volume_usd / 1e6).toFixed(1)}M`;
       document.getElementById('coverage-badge').innerText = `Cobertura: ${data.coverage_pct.toFixed(1)}%`;
       document.getElementById('sync-time-badge').innerText = `Sinc: ${new Date().toLocaleTimeString()}`;
+
+      // H-03: Sincronizar badge de origen dinámicamente con data.source
+      const feedText = document.getElementById('feed-status-text');
+      const feedBadge = document.getElementById('feed-status-badge');
+      if (feedText && feedBadge) {
+        if (data.source === 'demo') {
+          feedBadge.className = "px-2 py-0.5 rounded bg-amber-500/15 text-amber-400 font-mono text-[10px] font-bold uppercase tracking-wider inline-flex items-center gap-1";
+          feedText.innerText = "Modo Demo / Sintético";
+        } else {
+          feedBadge.className = "px-2 py-0.5 rounded bg-tertiary/15 text-tertiary font-mono text-[10px] font-bold uppercase tracking-wider inline-flex items-center gap-1";
+          feedText.innerText = "Binance Futures (OBSERVED)";
+        }
+      }
 
       // Bento stats
       let totalShortVol = 0;
