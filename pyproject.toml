@@ -100,3 +100,5 @@ exclude_lines = [
     "raise NotImplementedError",
     "if __name__ == .__main__.:",
 ]
+[tool.vercel]
+entrypoint = "app.py"
