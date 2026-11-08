@@ -65,6 +65,14 @@ class HeatmapBin(BaseModel):
         default=DataCoverage.NA,
         description="Cobertura del flujo de datos según ADR-011 (por defecto NA para MODELED)",
     )
+    dominant_leverage: float | None = Field(
+        default=None,
+        description="Apalancamiento dominante responsable de la mayor liquidez en este bin (ej. 25x, 50x, 100x)",
+    )
+    leverages: list[float] = Field(
+        default_factory=list,
+        description="Lista de apalancamientos que contribuyen a este bin",
+    )
 
 
 class HeatmapSnapshot(BaseModel):
@@ -118,6 +126,22 @@ class HeatmapSnapshot(BaseModel):
         default=0.0,
         ge=0,
         description="Antigüedad en segundos de los datos de mercado utilizados",
+    )
+    long_account_ratio: float = Field(
+        default=0.50,
+        ge=0.0,
+        le=1.0,
+        description="Ratio real de cuentas en largo según telemetría de Binance",
+    )
+    short_account_ratio: float = Field(
+        default=0.50,
+        ge=0.0,
+        le=1.0,
+        description="Ratio real de cuentas en corto según telemetría de Binance",
+    )
+    ratio_source: str = Field(
+        default="live",
+        description="Fuente del ratio: 'live' (Binance Long/Short accounts), 'custom' o 'neutral'",
     )
     total_estimated_volume_usd: float = Field(
         default=0.0,

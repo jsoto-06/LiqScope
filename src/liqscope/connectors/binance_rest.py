@@ -36,6 +36,12 @@ class BinanceMarketData(BaseModel):
     data_age_sec: float = Field(
         default=0.0, ge=0, description="Antigüedad en segundos de los datos"
     )
+    long_account_ratio: float = Field(
+        default=0.50, ge=0.0, le=1.0, description="Ratio de cuentas en largo según Binance"
+    )
+    short_account_ratio: float = Field(
+        default=0.50, ge=0.0, le=1.0, description="Ratio de cuentas en corto según Binance"
+    )
 
 
 class BinanceRestError(Exception):
@@ -130,6 +136,7 @@ class BinanceFuturesRestClient:
     """Cliente HTTP asíncrono para consultar Open Interest y Mark Price en Binance Futures."""
 
     _market_data_cache: dict[str, tuple[BinanceMarketData, float]] = {}
+    _ratio_cache: dict[str, tuple[float, float, int, float]] = {}
     _fetch_locks: dict[str, asyncio.Lock] = {}
 
     @classmethod
@@ -160,8 +167,9 @@ class BinanceFuturesRestClient:
 
     @classmethod
     def clear_cache(cls) -> None:
-        """Limpia la caché en memoria de datos de mercado y reinicia bloqueos."""
+        """Limpia la caché en memoria de datos de mercado, ratios y reinicia bloqueos."""
         cls._market_data_cache.clear()
+        cls._ratio_cache.clear()
         cls._fetch_locks.clear()
 
     async def __aenter__(self) -> Self:
@@ -194,7 +202,12 @@ class BinanceFuturesRestClient:
             raise UnsupportedSymbolError(symbol=symbol)
         return normalized
 
-    async def _request(self, path: str, params: dict[str, str]) -> dict[str, Any]:
+    async def _request(
+        self,
+        path: str,
+        params: dict[str, str],
+        expected_type: type | tuple[type, ...] = dict,
+    ) -> Any:
         """Ejecuta una petición GET y gestiona códigos de respuesta de Binance."""
         session = await self._ensure_session()
         url = f"{self.base_url}{path}"
@@ -205,9 +218,14 @@ class BinanceFuturesRestClient:
                 status = resp.status
                 if status == 200:
                     data = await resp.json()
-                    if not isinstance(data, dict):
+                    if not isinstance(data, expected_type):
+                        type_str = (
+                            "dict"
+                            if expected_type is dict
+                            else ("list" if expected_type is list else str(expected_type))
+                        )
                         raise BinanceRestError(
-                            message=f"Respuesta inesperada de Binance (no dict): {data}",
+                            message=f"Respuesta inesperada de Binance (no {type_str}): {data}",
                             code="BINANCE_MALFORMED_RESPONSE",
                             status_code=status,
                             symbol=sym,
@@ -310,6 +328,45 @@ class BinanceFuturesRestClient:
                 details=f"Error al procesar premiumIndex: {type(e).__name__}: {e}",
             ) from e
 
+    async def get_global_long_short_ratio(
+        self, symbol: str, ttl_sec: float | None = None
+    ) -> tuple[float, float, int]:
+        """Consulta el ratio global de cuentas Long/Short en Binance Futures con caché.
+
+        Endpoint: GET /futures/data/globalLongShortAccountRatio?symbol=...&period=5m&limit=1
+        Retorna: (long_account_ratio, short_account_ratio, timestamp_ms)
+        """
+        sym = self.validate_symbol(symbol)
+        effective_ttl = self.cache_ttl_sec if ttl_sec is None else ttl_sec
+        now = self.clock()
+        if effective_ttl > 0 and sym in self._ratio_cache:
+            long_acc, short_acc, ts, fetched_at = self._ratio_cache[sym]
+            if now - fetched_at < effective_ttl:
+                return long_acc, short_acc, ts
+
+        data = await self._request(
+            "/futures/data/globalLongShortAccountRatio",
+            params={"symbol": sym, "period": "5m", "limit": "1"},
+            expected_type=list,
+        )
+        try:
+            if not isinstance(data, list) or len(data) == 0:
+                raise ValueError(f"Lista vacía o formato inválido: {data}")
+            item = data[0]
+            long_acc = float(item["longAccount"])
+            short_acc = float(item["shortAccount"])
+            ts = int(item["timestamp"])
+            self._ratio_cache[sym] = (long_acc, short_acc, ts, now)
+            return long_acc, short_acc, ts
+        except (KeyError, ValueError, TypeError) as e:
+            raise BinanceRestError(
+                message="Formato no válido en respuesta de globalLongShortAccountRatio",
+                code="BINANCE_MALFORMED_RESPONSE",
+                status_code=502,
+                symbol=sym,
+                details=f"Error al procesar longShortRatio: {type(e).__name__}: {e}",
+            ) from e
+
     async def get_market_data(
         self,
         symbol: str,
@@ -333,6 +390,8 @@ class BinanceFuturesRestClient:
                     source=cached_data.source,
                     cached=True,
                     data_age_sec=round(age, 2),
+                    long_account_ratio=cached_data.long_account_ratio,
+                    short_account_ratio=cached_data.short_account_ratio,
                 )
 
         # Single-flight: sincronización para peticiones concurrentes del mismo símbolo

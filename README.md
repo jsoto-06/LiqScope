@@ -61,27 +61,22 @@ Luego abre tu navegador en [http://localhost:8000](http://localhost:8000).
 Al abrir [http://localhost:8000](http://localhost:8000), tendrás acceso al panel gráfico institucional interactivo:
 
 1. **Auto-actualización cada 2 minutos (120 s):**
-   * La aplicación consulta a Binance cada **120 segundos** de forma automática en segundo plano.
-   * Cuenta regresiva visible en vivo (`Auto: 02:00 -> 01:59...`) y hora exacta de sincronización (`Sinc: HH:MM:SS`).
-   * Botón de actualización manual instantánea en cualquier momento.
-2. **Navegación Multi-Pestaña Institucional:**
-   * 🔥 **Mapa de Calor:**
-     * Escalera de liquidaciones con barras de profundidad térmica proporcional y etiquetas de pools (`SHORT POOL` y `LONG POOL`).
-     * **Láser de Precio Mark:** Línea neón cian centradora con el precio en tiempo real.
-     * **Zona de Mayor Magnetismo:** Foco de atracción con cálculo dinámico de distancia en porcentaje y botón para inspeccionar el clúster.
-     * **3 Bento Tiles de Riesgo:** Volumen de shorts en riesgo, volumen de longs en riesgo y barra visual de ratio Long/Short.
-     * **Filtros Rápidos:** Chips de apalancamiento (`Todos`, `5x`, `10x`, `25x`, `50x`, `100x`), selectores de bins (50, 100, 250, 500 USD) y campos de rango de precio.
-   * 📊 **Modelo & Datos:**
-     * Protocolo de transparencia criptográfica con enlaces directos verificables a los endpoints oficiales de Binance (`premiumIndex` y `openInterest`).
-     * Desglose didáctico de las fórmulas matemáticas con `MMR`.
-   * 📐 **Niveles MMR & Simulador:**
-     * Simulador interactivo en tiempo real con selector LONG / SHORT, botón para **"Usar Mark Actual"**, chips de apalancamiento y cálculo instantáneo de precio de liquidación, distancia y buffer de supervivencia en USDT.
-     * Tabla oficial de escalones de mantenimiento de Binance Futures USDⓢ-M (Tiers 1 al 5).
-   * 🔔 **Alertas & Radar de Telemetría:**
-     * Monitor de radar activo con detección de paredes de liquidación inminentes y zonas dinámicas de soporte/resistencia.
-3. **Selector de Pares y Origen:**
-   * Cambia entre **BTCUSDT** y **ETHUSDT** con 1 solo clic.
-   * Alterna entre modo **Live (Binance en vivo)** y **Demo (sintético offline)**.
+   * Consulta automática a Binance cada **120 segundos** en segundo plano con temporizador en vivo (`Auto: 02:00 -> 01:59...`) y hora exacta de sincronización.
+   * Botón de actualización manual instantánea.
+2. **Telemetría de Cuentas L/S 100% Real de Binance:**
+   * Conexión directa a `globalLongShortAccountRatio`. Rompe la simetría artificial de 50/50 y proyecta las bolsas con los porcentajes reales del exchange (ej. 77.9% Long / 22.1% Short para ETH).
+3. **Escalera de Clústeres y Hotspots (Estilo CoinGlass):**
+   * 🔥 **Badge `MAX LIQ`:** Destaque pulsante dorado ámbar en el clúster con mayor liquidez concentrada del mercado.
+   * **Multiplicador Dominante por Fila:** Badges explícitos (`[25x]`, `[50x]`, `[100x]`) indicando qué apalancamiento domina cada escalón.
+   * **Inspector de Clúster Interactivo:** Al hacer clic en cualquier fila de la escalera o en el botón de foco de atracción, se despliega el desglose institucional (Tier MMR, Delta al Mark, Volumen USD y Nivel de Riesgo de Cascada).
+   * **Láser de Precio Mark Live:** Línea neón cian divisoria en tiempo real entre Short Pools y Long Pools.
+   * **Granularidad Óptima Automática:** Bins de `10 USD` para ETHUSDT y `50 USD` para BTCUSDT.
+4. **Navegación Multi-Pestaña Institucional:**
+   * 🔥 **Mapa de Calor:** Matriz completa, bento tiles de riesgo y zona de mayor magnetismo.
+   * 📊 **Modelo & Datos:** Protocolo de integridad y transparencia criptográfica.
+   * 📐 **Niveles MMR & Simulador:** Simulador interactivo con botón "Usar Mark Actual" y tabla de tiers de Binance.
+   * 🔔 **Alertas:** Monitor de barridas de liquidación y niveles dinámicos.
+   * 📖 **Manual de Usuario:** Guía técnica y operativa completa integrada en el panel (también disponible en [`MANUAL.md`](MANUAL.md) y [`/manual`](http://localhost:8000/manual)).
 
 ---
 
@@ -110,16 +105,23 @@ cp .env.example .env
 
 ### 5. Endpoints de la API REST
 
-Además del panel visual, LiqScope expone una API REST completa:
+Además del panel visual, LiqScope expone una API REST canónica versionada:
 
 * **Visualizador Web:** `GET /` (Dashboard visual interactivo).
+* **Manual de Usuario:** `GET /manual` o [`MANUAL.md`](MANUAL.md) (Guía detallada de uso y telemetría).
+* **Símbolos y Bins Recomendados:** `GET /api/v1/symbols` (Retorna pares soportados y su `default_bin_size`).
 * **Mapa de Calor:** `GET /api/v1/heatmap/{symbol}`
   * Parámetros de consulta:
     * `min_price`: Límite inferior de precio (float).
     * `max_price`: Límite superior de precio (float).
-    * `bin_size`: Tamaño del escalón en USD (defecto: `50.0`).
-    * `assumed_long_ratio`: Proporción de Longs estimada (defecto: `0.5`).
-    * `source`: `live` (Binance) o `demo` (sintético).
+    * `bin_size`: Tamaño del bin en USD (ej. `10.0` para ETH, `50.0` para BTC).
+    * `ratio_mode`: `'live'` (Binance live account ratio) o `'neutral'` (estático 50/50).
+    * `assumed_long_ratio`: Ratio personalizado (0.0 a 1.0) con prioridad sobre `ratio_mode`.
+    * `source`: `'live'` (Binance) o `'demo'` (sintético).
+  * Campos de respuesta adicionales:
+    * `dominant_leverage` y `leverages`: Identificación del apalancamiento que compone cada bin.
+    * `long_account_ratio` y `short_account_ratio`: Telemetría real de cuentas de Binance.
+    * `cached` y `data_age_sec`: Estado de caché TTL y edad de datos.
 * **Salud del Servidor:** `GET /health` (Estado `{"status": "ok", "env": "..."}`).
 * **Documentación Interactiva (Swagger UI):** `GET /docs`
 * **Especificación ReDoc:** `GET /redoc`
@@ -220,27 +222,21 @@ Then open your browser at [http://localhost:8000](http://localhost:8000).
 Upon opening [http://localhost:8000](http://localhost:8000), you will access the interactive institutional telemetry panel:
 
 1. **Automatic 2-Minute Auto-Refresh (120 s):**
-   * Automatically polls Binance every **120 seconds** in the background.
-   * Visible live countdown badge (`Auto: 02:00 -> 01:59...`) and exact sync timestamp (`Sinc: HH:MM:SS`).
+   * Automatically polls Binance every **120 seconds** in the background with live countdown (`Auto: 02:00 -> 01:59...`) and sync timestamp.
    * Instant manual refresh button available at any time.
-2. **Multi-Tab Institutional Navigation:**
-   * 🔥 **Heatmap Telemetry:**
-     * Liquidation ladder with proportional thermal depth bars and pool callouts (`SHORT POOL` and `LONG POOL`).
-     * **Mark Price Laser Line:** Neon cyan centering line tracking real-time price.
-     * **Highest Magnetism Zone:** Attraction epicenter callout card with dynamic distance percentage and cluster inspection drawer.
-     * **3 Bento Risk Tiles:** Shorts at risk volume, Longs at risk volume, and visual Long/Short ratio bar.
-     * **Quick Filters:** Leverage chips (`All`, `5x`, `10x`, `25x`, `50x`, `100x`), bin sizes (50, 100, 250, 500 USD), and custom price range inputs.
-   * 📊 **Model & Data:**
-     * Cryptographic transparency protocol with direct verifiable links to Binance official endpoints (`premiumIndex` and `openInterest`).
-     * Mathematical formula walkthrough with Maintenance Margin Rates (MMR).
-   * 📐 **MMR Tiers & Simulator:**
-     * Interactive real-time simulator with LONG / SHORT direction toggle, **"Use Current Mark"** button, leverage chips, and instant calculation of liquidation price, distance, and survival buffer in USDT.
-     * Official Binance USDⓢ-M Maintenance Tier brackets table (Tiers 1 to 5).
-   * 🔔 **Alerts & Telemetry Radar:**
-     * Active radar monitor detecting imminent liquidation walls and dynamic cascade zones.
-3. **Pair & Source Selector:**
-   * 1-click toggle between **BTCUSDT** and **ETHUSDT**.
-   * Toggle between **Live Feed (Binance)** and **Demo (offline synthetic)** modes.
+2. **100% Live Binance Long/Short Account Telemetry:**
+   * Directly connected to `globalLongShortAccountRatio`, breaking artificial 50/50 symmetry and weighting liquidation pools with real exchange statistics (e.g. 77.9% Long / 22.1% Short).
+3. **CoinGlass-Style Hotspots & Dominant Leverage Tags:**
+   * 🔥 **`MAX LIQ` Badge:** Glowing amber highlight on the primary liquidation cluster.
+   * **Dominant Leverage Badges:** Explicit labels (`[25x]`, `[50x]`, `[100x]`) for each price ladder row.
+   * **Interactive Cluster Inspector:** Click any ladder row or the epicenter card to inspect Tier MMR, Delta to Mark, USD volume, and Cascade Risk.
+   * **Dynamic Optimal Bins:** Automatically selects `10 USD` for ETHUSDT and `50 USD` for BTCUSDT.
+4. **Multi-Tab Institutional Navigation:**
+   * 🔥 **Heatmap Telemetry:** Proportional depth ladder, risk bento tiles, and magnetic attraction zone.
+   * 📊 **Model & Data:** Cryptographic transparency protocol and verified formula documentation.
+   * 📐 **MMR Tiers & Simulator:** Interactive calculator with "Use Current Mark" button and Binance tier brackets.
+   * 🔔 **Alerts & Telemetry Radar:** Real-time liquidation wall and cascade risk monitor.
+   * 📖 **User Manual:** Complete guide embedded directly in the dashboard, at [`MANUAL.md`](MANUAL.md), and at [`/manual`](http://localhost:8000/manual).
 
 ---
 
@@ -269,16 +265,23 @@ cp .env.example .env
 
 ### 5. REST API Endpoints
 
-In addition to the visual dashboard, LiqScope provides a complete REST API:
+In addition to the visual dashboard, LiqScope provides a complete canonical versioned REST API:
 
 * **Web Visualizer:** `GET /` (Interactive visual dashboard).
+* **User Manual:** `GET /manual` or [`MANUAL.md`](MANUAL.md) (Complete telemetry and usage manual).
+* **Supported Symbols & Recommended Bins:** `GET /api/v1/symbols` (Returns supported symbols and their `default_bin_size`).
 * **Liquidation Heatmap:** `GET /api/v1/heatmap/{symbol}`
   * Query parameters:
     * `min_price`: Lower price boundary (float).
     * `max_price`: Upper price boundary (float).
-    * `bin_size`: Price bin step in USD (default: `50.0`).
-    * `assumed_long_ratio`: Assumed Long ratio (default: `0.5`).
-    * `source`: `live` (Binance) or `demo` (synthetic).
+    * `bin_size`: Price bin step in USD (e.g. `10.0` for ETH, `50.0` for BTC).
+    * `ratio_mode`: `'live'` (Binance live account ratio) or `'neutral'` (static 50/50).
+    * `assumed_long_ratio`: Custom ratio (0.0 to 1.0) with precedence over `ratio_mode`.
+    * `source`: `'live'` (Binance) or `'demo'` (synthetic).
+  * Extended response fields:
+    * `dominant_leverage` & `leverages`: Leverage distribution breakdown for each bin.
+    * `long_account_ratio` & `short_account_ratio`: Live Binance account telemetry.
+    * `cached` & `data_age_sec`: TTL cache status and data age.
 * **Service Health:** `GET /health` (Status `{"status": "ok", "env": "..."}`).
 * **Interactive Documentation (Swagger UI):** `GET /docs`
 * **ReDoc Specification:** `GET /redoc`

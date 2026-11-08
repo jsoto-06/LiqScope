@@ -76,6 +76,10 @@ async def get_heatmap(
         le=1.0,
         description="Ratio supuesto de volumen en posiciones long (0.0 a 1.0)",
     ),
+    ratio_mode: str = Query(
+        default="live",
+        description="Modo de ponderación Long/Short: 'live' (ratio real Binance) o 'neutral' (ratio estático)",
+    ),
     source: str = Query(
         default="live",
         description="Origen de los datos: 'live' (Binance en vivo) o 'demo' (sintético)",
@@ -176,6 +180,26 @@ async def get_heatmap(
     # 2. Modelado y agregación del snapshot de liquidaciones
     total_oi_usd = market_data.open_interest * market_data.mark_price
 
+    long_acc_ratio = 0.50
+    short_acc_ratio = 0.50
+    if source.lower() != "demo" and ratio_mode == "live":
+        try:
+            long_acc_ratio, short_acc_ratio, _ = await client.get_global_long_short_ratio(
+                normalized_sym
+            )
+        except Exception:
+            long_acc_ratio, short_acc_ratio = 0.50, 0.50
+
+    if assumed_long_ratio != 0.50:
+        effective_long_ratio = assumed_long_ratio
+        effective_ratio_source = "custom"
+    elif ratio_mode == "neutral":
+        effective_long_ratio = 0.50
+        effective_ratio_source = "neutral"
+    else:
+        effective_long_ratio = long_acc_ratio
+        effective_ratio_source = "live"
+
     return build_heatmap_snapshot(
         symbol=market_data.symbol,
         mark_price=market_data.mark_price,
@@ -183,8 +207,11 @@ async def get_heatmap(
         bin_size=bin_size,
         min_price=min_price,
         max_price=max_price,
-        assumed_long_ratio=assumed_long_ratio,
+        assumed_long_ratio=effective_long_ratio,
         source=market_data.source,
         cached=market_data.cached,
         data_age_sec=market_data.data_age_sec,
+        long_account_ratio=long_acc_ratio,
+        short_account_ratio=short_acc_ratio,
+        ratio_source=effective_ratio_source,
     )

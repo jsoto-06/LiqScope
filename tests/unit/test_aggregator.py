@@ -175,3 +175,26 @@ def test_heatmap_aggregator_class_compatibility() -> None:
     )
     assert len(snap.bins) == 10
     assert snap.visible_bin_volume_usd == pytest.approx(TOTAL_OI_USD, abs=0.02)
+
+
+def test_aggregator_dominant_leverage_and_ratio_propagation() -> None:
+    """Verifica que cada bin calcule su dominant_leverage, leverages y propague los ratios."""
+    snap = build_heatmap_snapshot(
+        symbol="BTCUSDT",
+        mark_price=P_MARK,
+        total_open_interest_usd=TOTAL_OI_USD,
+        bin_size=BIN_SIZE,
+        assumed_long_ratio=0.75,
+        long_account_ratio=0.75,
+        short_account_ratio=0.25,
+        ratio_source="live",
+    )
+    assert snap.long_account_ratio == 0.75
+    assert snap.short_account_ratio == 0.25
+    assert snap.ratio_source == "live"
+    assert len(snap.bins) > 0
+
+    for b in snap.bins:
+        assert b.dominant_leverage in (5.0, 10.0, 25.0, 50.0, 100.0)
+        assert len(b.leverages) >= 1
+        assert b.dominant_leverage in b.leverages

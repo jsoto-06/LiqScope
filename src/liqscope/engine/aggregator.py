@@ -92,6 +92,9 @@ def build_heatmap_snapshot(
     source: str = "live",
     cached: bool = False,
     data_age_sec: float = 0.0,
+    long_account_ratio: float = 0.50,
+    short_account_ratio: float = 0.50,
+    ratio_source: str = "live",
 ) -> HeatmapSnapshot:
     """Construye un snapshot de mapa de calor en bins agregados con filtrado atómico por rango."""
     sym = symbol.upper()
@@ -115,6 +118,9 @@ def build_heatmap_snapshot(
             disclaimer=DEFAULT_DISCLAIMER,
             total_estimated_volume_usd=0.0,
             is_complete=True,
+            long_account_ratio=long_account_ratio,
+            short_account_ratio=short_account_ratio,
+            ratio_source=ratio_source,
         )
 
     levels = generate_liquidation_levels(
@@ -124,8 +130,14 @@ def build_heatmap_snapshot(
     )
 
     # Agrupar niveles por índice de bin discreto
-    binned_data: dict[int, dict[str, float]] = defaultdict(
-        lambda: {"total": 0.0, "long": 0.0, "short": 0.0, "count": 0.0}
+    binned_data: dict[int, dict[str, Any]] = defaultdict(
+        lambda: {
+            "total": 0.0,
+            "long": 0.0,
+            "short": 0.0,
+            "count": 0.0,
+            "lev_vols": defaultdict(float),
+        }
     )
 
     for lvl in levels:
@@ -136,6 +148,7 @@ def build_heatmap_snapshot(
         else:
             binned_data[bin_idx]["short"] += lvl.volume_usd
         binned_data[bin_idx]["count"] += 1.0
+        binned_data[bin_idx]["lev_vols"][lvl.leverage] += lvl.volume_usd
 
     all_bins: list[HeatmapBin] = []
     for b_idx in sorted(binned_data.keys()):
@@ -143,6 +156,9 @@ def build_heatmap_snapshot(
         p_max = p_min + bin_size
         p_mid = p_min + (bin_size / 2.0)
         entry = binned_data[b_idx]
+        lev_map: dict[float, float] = entry["lev_vols"]
+        leverages_list = sorted(lev_map.keys())
+        dominant_leverage = max(lev_map.items(), key=lambda x: x[1])[0] if lev_map else None
 
         all_bins.append(
             HeatmapBin(
@@ -155,6 +171,8 @@ def build_heatmap_snapshot(
                 estimated_positions=int(entry["count"]),
                 origin=DataOrigin.MODELED,
                 coverage=DataCoverage.NA,
+                dominant_leverage=dominant_leverage,
+                leverages=leverages_list,
             )
         )
 
@@ -187,6 +205,9 @@ def build_heatmap_snapshot(
         data_age_sec=round(data_age_sec, 2),
         total_estimated_volume_usd=round(visible_volume, 2),
         is_complete=True,
+        long_account_ratio=round(long_account_ratio, 4),
+        short_account_ratio=round(short_account_ratio, 4),
+        ratio_source=ratio_source,
     )
 
 
@@ -267,4 +288,6 @@ class HeatmapAggregator:
             total_open_interest_usd=total_open_interest_usd,
             bin_size=bin_size,
             assumed_long_ratio=long_ratio,
+            long_account_ratio=long_ratio,
+            short_account_ratio=round(1.0 - long_ratio, 4),
         )

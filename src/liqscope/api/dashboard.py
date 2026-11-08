@@ -147,6 +147,12 @@ DASHBOARD_HTML = """<!DOCTYPE html>
           <button id="btn-live" onclick="setSource('live')" class="px-2.5 py-1 text-xs font-mono font-semibold rounded bg-tertiary/20 text-tertiary border border-tertiary/30 transition-all">Live Feed</button>
           <button id="btn-demo" onclick="setSource('demo')" class="px-2.5 py-1 text-xs font-mono font-semibold rounded text-on-surface-variant hover:text-white transition-all">Demo</button>
         </div>
+
+        <!-- Manual Link Button -->
+        <button onclick="switchTab('manual')" class="px-2.5 py-1 text-xs font-mono font-semibold rounded-lg border border-surface-container-high bg-surface-container-low hover:bg-surface-container text-outline hover:text-primary transition-all flex items-center gap-1 shadow-sm" title="Abrir Manual de Usuario y Guía Técnica">
+          <span class="material-symbols-outlined text-[15px] text-primary">menu_book</span>
+          <span>Manual</span>
+        </button>
       </div>
 
       <!-- Right: Live Mark Telemetry & Auto Countdown -->
@@ -227,7 +233,9 @@ DASHBOARD_HTML = """<!DOCTYPE html>
             Bins:
           </span>
           <select id="select-bin-size" onchange="fetchHeatmap(true)" class="px-2.5 py-1 text-xs font-mono rounded bg-surface-container border border-surface-container-high text-white focus:outline-none focus:border-primary-container">
-            <option value="50">50 USD (Estándar)</option>
+            <option value="10">10 USD (ETH Óptimo)</option>
+            <option value="25">25 USD</option>
+            <option value="50" selected>50 USD (BTC Estándar)</option>
             <option value="100">100 USD</option>
             <option value="250">250 USD</option>
             <option value="500">500 USD</option>
@@ -343,17 +351,20 @@ DASHBOARD_HTML = """<!DOCTYPE html>
         <!-- Long / Short Ratio Bar Tile -->
         <div class="w-full bg-surface-container border border-surface-container-high rounded-xl p-3 shadow-sm flex flex-col justify-between gap-1.5">
           <div class="flex items-center justify-between">
-            <span class="text-xs text-on-surface-variant font-medium">Ratio Long / Short OI</span>
+            <div class="flex items-center gap-1.5">
+              <span class="text-xs text-on-surface-variant font-medium">Ratio Long / Short OI</span>
+              <span id="ratio-mode-pill" class="text-[9px] font-mono px-1.5 py-0.2 rounded bg-tertiary/15 text-tertiary border border-tertiary/20 font-bold uppercase">LIVE</span>
+            </div>
             <div class="flex items-center gap-2 font-mono text-xs">
-              <span class="text-tertiary font-bold">50.0% Long</span>
+              <span id="ratio-long-text" class="text-tertiary font-bold">50.0% Long</span>
               <span class="text-outline">/</span>
-              <span class="text-secondary font-bold">50.0% Short</span>
+              <span id="ratio-short-text" class="text-secondary font-bold">50.0% Short</span>
             </div>
           </div>
           <!-- Dual Segment Progress Bar -->
           <div class="w-full h-2 rounded-full bg-surface-container-lowest overflow-hidden flex border border-surface-container-high">
-            <div class="h-full bg-tertiary transition-all duration-500" style="width: 50%"></div>
-            <div class="h-full bg-secondary-container transition-all duration-500" style="width: 50%"></div>
+            <div id="ratio-long-bar" class="h-full bg-tertiary transition-all duration-500" style="width: 50%"></div>
+            <div id="ratio-short-bar" class="h-full bg-secondary-container transition-all duration-500" style="width: 50%"></div>
           </div>
         </div>
 
@@ -378,7 +389,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
           </div>
           <div class="flex flex-col items-end">
             <span id="magnet-vol" class="font-mono text-sm md:text-base text-white font-bold">$1,140.2M</span>
-            <span class="font-mono text-[10px] text-tertiary uppercase">Apalancamiento 25x-50x</span>
+            <span id="magnet-lev" class="font-mono text-[10px] text-tertiary uppercase">Apalancamiento 25x-50x</span>
           </div>
         </div>
 
@@ -397,26 +408,26 @@ DASHBOARD_HTML = """<!DOCTYPE html>
           <div class="flex items-center justify-between pb-1 border-b border-surface-container-high">
             <div class="flex items-center gap-1.5">
               <span class="material-symbols-outlined text-primary text-[18px]">travel_explore</span>
-              <span class="text-xs font-bold text-white">Desglose del Clúster</span>
+              <span id="inspect-cluster-title" class="text-xs font-bold text-white">Desglose del Clúster</span>
             </div>
             <button onclick="closeInspection()" class="text-outline hover:text-white text-xs font-mono">Cerrar [×]</button>
           </div>
           <div class="grid grid-cols-2 md:grid-cols-4 gap-2 pt-1 font-mono text-xs">
             <div class="bg-surface-container-low p-2 rounded">
-              <span class="text-outline text-[10px] block">Tier Principal</span>
-              <span class="font-bold text-white">25x (MMR 1.0%)</span>
+              <span class="text-outline text-[10px] block">Tier / Apalancamiento</span>
+              <span id="inspect-tier" class="font-bold text-white">25x (MMR 1.0%)</span>
             </div>
             <div class="bg-surface-container-low p-2 rounded">
               <span class="text-outline text-[10px] block">Delta Requerido</span>
-              <span class="font-bold text-secondary">3.00%</span>
+              <span id="inspect-delta" class="font-bold text-secondary">3.00%</span>
             </div>
             <div class="bg-surface-container-low p-2 rounded">
-              <span class="text-outline text-[10px] block">Tasa MMR Oficial</span>
-              <span class="font-bold text-primary">Binance Tier 1</span>
+              <span class="text-outline text-[10px] block">Volumen Estimado</span>
+              <span id="inspect-vol" class="font-bold text-primary">$1,140.2M</span>
             </div>
             <div class="bg-surface-container-low p-2 rounded">
               <span class="text-outline text-[10px] block">Riesgo de Cascada</span>
-              <span class="font-bold text-error">ELEVADO</span>
+              <span id="inspect-risk" class="font-bold text-error">ELEVADO</span>
             </div>
           </div>
         </div>
@@ -730,6 +741,100 @@ DASHBOARD_HTML = """<!DOCTYPE html>
 
     </div>
 
+    <!-- TAB 5: MANUAL & GUÍA DE USO -->
+    <div id="tab-manual" class="tab-pane hidden flex flex-col space-y-4">
+
+      <!-- Header Hero Card -->
+      <div class="rounded-xl bg-surface-container-high border border-surface-container-highest p-4 shadow-lg flex items-start justify-between gap-3">
+        <div class="flex items-start gap-3">
+          <div class="w-10 h-10 rounded-xl bg-primary-container/20 border border-primary-container/30 flex items-center justify-center text-primary-container shrink-0 mt-0.5">
+            <span class="material-symbols-outlined text-[24px]">menu_book</span>
+          </div>
+          <div class="flex flex-col">
+            <div class="flex items-center gap-2">
+              <h2 class="text-base font-bold text-white">Manual de Usuario & Telemetría</h2>
+              <span class="px-2 py-0.2 bg-primary-container/15 text-primary-container text-[10px] font-mono font-bold rounded uppercase">Guía Oficial</span>
+            </div>
+            <p class="text-xs text-on-surface-variant mt-1 leading-relaxed">
+              Aprende a interpretar la matriz de calor, los clústeres de liquidación institucional estilo CoinGlass, los multiplicadores dominantes y la telemetría en vivo de Binance USDⓢ-M.
+            </p>
+          </div>
+        </div>
+        <a href="https://github.com/liqscope" target="_blank" class="hidden sm:inline-flex px-3 py-1 text-xs font-mono font-bold rounded-lg bg-surface-container-lowest border border-surface-container-high text-primary hover:underline items-center gap-1">
+          GitHub Docs ↗
+        </a>
+      </div>
+
+      <!-- Section 1: Concept & Data Integrity -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <div class="bg-surface-container border border-surface-container-high rounded-xl p-3.5 space-y-2">
+          <div class="flex items-center gap-2 text-white font-bold text-xs uppercase font-mono">
+            <span class="material-symbols-outlined text-tertiary text-[18px]">verified</span>
+            1. Datos 100% Reales en Vivo
+          </div>
+          <ul class="text-xs text-on-surface-variant space-y-1.5 list-disc list-inside">
+            <li><strong class="text-white">Precio Mark:</strong> Servidores de producción de Binance Futures en tiempo real (<code class="text-primary font-mono text-[10px]">/fapi/v1/premiumIndex</code>).</li>
+            <li><strong class="text-white">Open Interest Global:</strong> Contratos vigentes en el mercado (<code class="text-primary font-mono text-[10px]">/fapi/v1/openInterest</code>).</li>
+            <li><strong class="text-white">Ratio Real de Cuentas:</strong> Porcentaje de cuentas reales en largo vs corto (<code class="text-primary font-mono text-[10px]">/futures/data/globalLongShortAccountRatio</code>).</li>
+          </ul>
+        </div>
+
+        <div class="bg-surface-container border border-surface-container-high rounded-xl p-3.5 space-y-2">
+          <div class="flex items-center gap-2 text-white font-bold text-xs uppercase font-mono">
+            <span class="material-symbols-outlined text-secondary-container text-[18px]">functions</span>
+            2. Modelado Matemático de Zonas
+          </div>
+          <p class="text-xs text-on-surface-variant leading-relaxed">
+            Ningún exchange publica precios de entrada privados. Al igual que plataformas como CoinGlass, LiqScope proyecta el Open Interest en escalones discretos usando las fórmulas oficiales de margen de mantenimiento (<strong class="text-white">MMR</strong>) de Binance.
+          </p>
+        </div>
+      </div>
+
+      <!-- Section 2: Ladder Matrix Interpretation -->
+      <div class="bg-surface-container border border-surface-container-high rounded-xl p-4 space-y-3">
+        <div class="flex items-center gap-2 text-white font-bold text-xs uppercase font-mono">
+          <span class="material-symbols-outlined text-primary text-[20px]">view_column</span>
+          3. Cómo Leer la Escalera de Liquidaciones
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-2.5 font-mono text-xs">
+          <div class="bg-surface-container-lowest p-3 rounded-lg border border-secondary-container/30">
+            <span class="text-secondary-container font-bold block mb-1">🔥 Badge MAX LIQ</span>
+            <p class="text-[11px] text-slate-300 font-sans leading-relaxed">
+              Identifica el clúster con mayor acumulación de liquidez de todo el libro visible. Es el objetivo magnético prioritario del mercado.
+            </p>
+          </div>
+
+          <div class="bg-surface-container-lowest p-3 rounded-lg border border-primary-container/30">
+            <span class="text-primary-container font-bold block mb-1">Multiplicador [25x, 50x]</span>
+            <p class="text-[11px] text-slate-300 font-sans leading-relaxed">
+              Indica qué nivel de apalancamiento es el responsable principal del volumen concentrado en ese escalón de precio.
+            </p>
+          </div>
+
+          <div class="bg-surface-container-lowest p-3 rounded-lg border border-tertiary/30">
+            <span class="text-tertiary font-bold block mb-1">Láser Neón Mark Price</span>
+            <p class="text-[11px] text-slate-300 font-sans leading-relaxed">
+              Línea divisoria en vivo: los <strong class="text-secondary-container">Short Pools</strong> se sitúan siempre por encima y los <strong class="text-tertiary">Long Pools</strong> por debajo.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Section 3: Optimal Bins Guide -->
+      <div class="bg-surface-container border border-surface-container-high rounded-xl p-4 space-y-2">
+        <div class="flex items-center gap-2 text-white font-bold text-xs uppercase font-mono">
+          <span class="material-symbols-outlined text-primary text-[20px]">tune</span>
+          4. Granularidad Óptima de Bins (BTC vs ETH)
+        </div>
+        <p class="text-xs text-on-surface-variant leading-relaxed">
+          Para <strong class="text-white">BTCUSDT</strong> (~$75,000 USD), el tamaño recomendado es <strong class="text-primary font-mono">50 USD</strong> o <strong class="text-primary font-mono">100 USD</strong>.
+          Para <strong class="text-white">ETHUSDT</strong> (~$2,200 USD), el selector se ajusta automáticamente a <strong class="text-primary font-mono">10 USD</strong> para evitar fusionar los niveles de 50x y 100x en un solo escalón.
+        </p>
+      </div>
+
+    </div>
+
   </main>
 
   <!-- FIXED BOTTOM NAVIGATION BAR -->
@@ -754,6 +859,11 @@ DASHBOARD_HTML = """<!DOCTYPE html>
       <button onclick="switchTab('alertas')" id="nav-alertas" class="nav-btn flex flex-col items-center justify-center gap-0.5 px-3 py-1.5 rounded-lg text-outline hover:text-white transition-all">
         <span class="material-symbols-outlined text-[20px]">notifications</span>
         <span class="font-mono text-[10px] tracking-tight">Alertas</span>
+      </button>
+
+      <button onclick="switchTab('manual')" id="nav-manual" class="nav-btn flex flex-col items-center justify-center gap-0.5 px-3 py-1.5 rounded-lg text-outline hover:text-white transition-all">
+        <span class="material-symbols-outlined text-[20px]">menu_book</span>
+        <span class="font-mono text-[10px] tracking-tight">Manual</span>
       </button>
 
     </div>
@@ -825,6 +935,16 @@ DASHBOARD_HTML = """<!DOCTYPE html>
       document.getElementById('btn-btc').className = sym === 'BTCUSDT' ? 'px-3 py-1 text-xs font-mono font-bold rounded bg-primary-container text-on-primary-container shadow transition-all' : 'px-3 py-1 text-xs font-mono font-bold rounded text-on-surface-variant hover:text-white transition-all';
       document.getElementById('btn-eth').className = sym === 'ETHUSDT' ? 'px-3 py-1 text-xs font-mono font-bold rounded bg-primary-container text-on-primary-container shadow transition-all' : 'px-3 py-1 text-xs font-mono font-bold rounded text-on-surface-variant hover:text-white transition-all';
       document.getElementById('hero-symbol-badge').innerText = sym === 'BTCUSDT' ? 'BTC/USDT USDⓈ-M' : 'ETH/USDT USDⓈ-M';
+
+      // Auto-adapt bin size: 10 for ETH, 50 for BTC
+      const binSelect = document.getElementById('select-bin-size');
+      if (binSelect) {
+        if (sym === 'ETHUSDT' && (binSelect.value === '50' || binSelect.value === '100')) {
+          binSelect.value = '10';
+        } else if (sym === 'BTCUSDT' && binSelect.value === '10') {
+          binSelect.value = '50';
+        }
+      }
       fetchHeatmap(true);
     }
 
@@ -924,6 +1044,24 @@ DASHBOARD_HTML = """<!DOCTYPE html>
       document.getElementById('tile-short-vol').innerText = `$${(totalShortVol / 1e6).toFixed(1)}M`;
       document.getElementById('tile-long-vol').innerText = `$${(totalLongVol / 1e6).toFixed(1)}M`;
 
+      // Update Long/Short Ratio Tile with Binance live telemetry
+      if (data.long_account_ratio !== undefined && data.short_account_ratio !== undefined) {
+        const longPct = (data.long_account_ratio * 100).toFixed(1);
+        const shortPct = (data.short_account_ratio * 100).toFixed(1);
+        const elLong = document.getElementById('ratio-long-text');
+        const elShort = document.getElementById('ratio-short-text');
+        const barLong = document.getElementById('ratio-long-bar');
+        const barShort = document.getElementById('ratio-short-bar');
+        if (elLong) elLong.innerText = `${longPct}% Long`;
+        if (elShort) elShort.innerText = `${shortPct}% Short`;
+        if (barLong) barLong.style.width = `${longPct}%`;
+        if (barShort) barShort.style.width = `${shortPct}%`;
+        const pill = document.getElementById('ratio-mode-pill');
+        if (pill) {
+          pill.innerText = data.ratio_source === 'live' ? 'BINANCE LIVE' : (data.ratio_source === 'custom' ? 'CUSTOM' : 'NEUTRAL');
+        }
+      }
+
       // Ladder render
       const container = document.getElementById('ladder-container');
       container.innerHTML = '';
@@ -946,7 +1084,13 @@ DASHBOARD_HTML = """<!DOCTYPE html>
       });
       updateMagnetCard(maxClusterBin, data.current_price);
 
-      sortedBins.forEach(b => {
+      // Filter by selected leverage if active
+      let displayBins = sortedBins;
+      if (selectedLevFilter > 0) {
+        displayBins = sortedBins.filter(b => b.leverages && b.leverages.includes(selectedLevFilter));
+      }
+
+      displayBins.forEach(b => {
         if (!markPriceInserted && b.price_max <= data.current_price) {
           container.appendChild(createMarkPriceLaser(data.current_price));
           markPriceInserted = true;
@@ -954,6 +1098,8 @@ DASHBOARD_HTML = """<!DOCTYPE html>
 
         const isShort = b.short_volume_usd > b.long_volume_usd;
         const volPct = Math.min(100, Math.max(12, (b.estimated_volume_usd / maxVol) * 100));
+        const isMax = (b.price_min === maxClusterBin.price_min);
+        const levBadge = b.dominant_leverage ? `${b.dominant_leverage}x` : 'Multi';
 
         // Gradient styles
         const gradientClass = isShort
@@ -961,21 +1107,32 @@ DASHBOARD_HTML = """<!DOCTYPE html>
           : 'bg-gradient-to-r from-tertiary-container/40 via-tertiary to-tertiary-fixed text-on-tertiary shadow-sm';
 
         const row = document.createElement('div');
-        row.className = 'grid grid-cols-12 items-center gap-2 py-1 px-2 rounded-lg hover:bg-surface-container transition-colors text-xs font-mono';
+        row.className = `grid grid-cols-12 items-center gap-2 py-1.5 px-2 rounded-lg hover:bg-surface-container transition-all cursor-pointer text-xs font-mono border ${isMax ? 'border-secondary-container/50 bg-secondary-container/10 laser-glow' : 'border-transparent'}`;
+        row.onclick = () => inspectBin(b, data.current_price);
+        row.title = `Click para inspeccionar clúster en $${b.price_mid.toLocaleString()}`;
 
         row.innerHTML = `
-          <div class="col-span-3 text-outline text-[11px]">
-            $${b.price_min.toLocaleString()} - $${b.price_max.toLocaleString()}
+          <div class="col-span-4 flex flex-col">
+            <div class="flex items-center gap-1.5">
+              <span class="text-white font-bold text-xs">$${b.price_mid.toLocaleString('en-US', { minimumFractionDigits: currentSymbol === 'ETHUSDT' ? 2 : 0 })}</span>
+              ${isMax ? '<span class="px-1.5 py-0.2 rounded bg-secondary-container text-on-secondary text-[9px] font-extrabold uppercase animate-pulse flex items-center gap-0.5"><span class="material-symbols-outlined text-[10px]">local_fire_department</span>MAX LIQ</span>' : ''}
+            </div>
+            <span class="text-outline text-[10px]">$${b.price_min.toLocaleString()} - $${b.price_max.toLocaleString()}</span>
           </div>
-          <div class="col-span-6 relative h-6 bg-surface-container-low rounded overflow-hidden flex items-center px-2">
+          <div class="col-span-5 relative h-7 bg-surface-container-low rounded overflow-hidden flex items-center px-2">
             <div class="absolute left-0 top-0 bottom-0 ${gradientClass} rounded transition-all duration-300" style="width: ${volPct}%"></div>
-            <span class="relative z-10 font-bold text-[11px] drop-shadow text-white flex items-center gap-1">
-              $${(b.estimated_volume_usd / 1e6).toFixed(2)}M
-            </span>
+            <div class="relative z-10 flex items-center justify-between w-full">
+              <span class="font-extrabold text-xs drop-shadow text-white">
+                $${(b.estimated_volume_usd / 1e6).toFixed(2)}M
+              </span>
+              <span class="px-1.5 py-0.2 rounded bg-surface-container-highest/90 border border-surface-container-high text-primary-container text-[10px] font-bold">
+                ${levBadge}
+              </span>
+            </div>
           </div>
           <div class="col-span-3 text-right font-bold text-[11px] ${isShort ? 'text-secondary' : 'text-tertiary'} flex items-center justify-end gap-1">
-            <span class="material-symbols-outlined text-[13px]">${isShort ? 'arrow_upward' : 'arrow_downward'}</span>
-            ${isShort ? 'SHORT POOL' : 'LONG POOL'}
+            <span class="material-symbols-outlined text-[14px]">${isShort ? 'arrow_upward' : 'arrow_downward'}</span>
+            <span>${isShort ? 'SHORT POOL' : 'LONG POOL'}</span>
           </div>
         `;
         container.appendChild(row);
@@ -1006,15 +1163,60 @@ DASHBOARD_HTML = """<!DOCTYPE html>
       const mid = bin.price_mid;
       const diffPct = ((mid - markPrice) / markPrice) * 100;
       const distUsd = Math.abs(mid - markPrice);
+      const lev = bin.dominant_leverage ? `${bin.dominant_leverage}x` : '25x-50x';
 
-      document.getElementById('magnet-price').innerText = `$${mid.toLocaleString('en-US', { maximumFractionDigits: 0 })}`;
+      document.getElementById('magnet-price').innerText = `$${mid.toLocaleString('en-US', { minimumFractionDigits: currentSymbol === 'ETHUSDT' ? 2 : 0, maximumFractionDigits: 2 })}`;
       document.getElementById('magnet-dist').innerText = `Distancia al Mark: ${diffPct >= 0 ? '+' : ''}${diffPct.toFixed(2)}% (~$${distUsd.toFixed(2)})`;
       document.getElementById('magnet-vol').innerText = `$${(bin.estimated_volume_usd / 1e6).toFixed(1)}M`;
+      const levEl = document.getElementById('magnet-lev');
+      if (levEl) levEl.innerText = `Apalancamiento Dominante: ${lev}`;
     }
 
     function inspectCluster() {
       const panel = document.getElementById('clusterInspectionPanel');
       if (panel) panel.classList.toggle('hidden');
+    }
+
+    function inspectBin(bin, currentPrice) {
+      if (!bin) return;
+      const panel = document.getElementById('clusterInspectionPanel');
+      if (panel) panel.classList.remove('hidden');
+
+      const mark = currentPrice || (currentData ? currentData.current_price : 0);
+      const mid = bin.price_mid;
+      const diffPct = mark > 0 ? (((mid - mark) / mark) * 100) : 0;
+      const lev = bin.dominant_leverage || 50;
+
+      let mmrPct = '0.5%';
+      if (lev === 5) mmrPct = '4.0%';
+      else if (lev === 10) mmrPct = '2.0%';
+      else if (lev === 25) mmrPct = '1.0%';
+      else if (lev === 50) mmrPct = '0.5%';
+      else if (lev === 100) mmrPct = '0.4%';
+
+      const titleEl = document.getElementById('inspect-cluster-title');
+      const tierEl = document.getElementById('inspect-tier');
+      const deltaEl = document.getElementById('inspect-delta');
+      const volEl = document.getElementById('inspect-vol');
+      const riskEl = document.getElementById('inspect-risk');
+
+      if (titleEl) titleEl.innerText = `Desglose Clúster: $${bin.price_mid.toLocaleString()} (${bin.price_min.toLocaleString()} - ${bin.price_max.toLocaleString()})`;
+      if (tierEl) tierEl.innerText = `${lev}x (MMR ${mmrPct})`;
+      if (deltaEl) deltaEl.innerText = `${diffPct >= 0 ? '+' : ''}${diffPct.toFixed(2)}% al Mark`;
+      if (volEl) volEl.innerText = `$${(bin.estimated_volume_usd / 1e6).toFixed(2)}M`;
+      if (riskEl) {
+        if (Math.abs(diffPct) <= 2.0) {
+          riskEl.innerText = 'CRÍTICO / INMEDIATO';
+          riskEl.className = 'font-bold text-error';
+        } else if (Math.abs(diffPct) <= 5.0) {
+          riskEl.innerText = 'ELEVADO';
+          riskEl.className = 'font-bold text-secondary-container';
+        } else {
+          riskEl.innerText = 'MODERADO';
+          riskEl.className = 'font-bold text-primary';
+        }
+      }
+      panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
 
     function closeInspection() {
@@ -1096,6 +1298,11 @@ DASHBOARD_HTML = """<!DOCTYPE html>
       document.getElementById('sim-dist-result').innerText = `${distPct >= 0 ? '+' : ''}${distPct.toFixed(2)}%`;
       document.getElementById('sim-mmr-badge').innerText = `${(simMMR * 100).toFixed(2)}%`;
       document.getElementById('sim-buffer-badge').innerText = `~$${bufferUsd.toLocaleString('en-US', { minimumFractionDigits: 2 })} USDT`;
+    }
+
+    // Check hash for direct tab linking (e.g. #manual)
+    if (window.location.hash === '#manual') {
+      switchTab('manual');
     }
 
     // Initial Start

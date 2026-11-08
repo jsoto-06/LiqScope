@@ -451,3 +451,60 @@ def test_get_symbols_endpoints(test_client: TestClient) -> None:
     # El alias sin versión /symbols fue eliminado según decisión de arquitectura REST
     resp_unversioned = test_client.get("/symbols")
     assert resp_unversioned.status_code == 404
+
+
+def test_heatmap_ratio_modes_and_fallback(test_client: TestClient) -> None:
+    """Verifica modos de ratio 'live', 'neutral' y fallback en caso de error en ratio."""
+    mock_market_data = BinanceMarketData(
+        symbol="ETHUSDT",
+        mark_price=2200.0,
+        open_interest=200000.0,
+        open_interest_time=1729630000000,
+        premium_index_time=1729630005000,
+        source="live",
+    )
+    mock_client = AsyncMock(spec=BinanceFuturesRestClient)
+    mock_client.get_market_data.return_value = mock_market_data
+    mock_client.get_global_long_short_ratio.return_value = (0.75, 0.25, 1729630000000)
+
+    app = test_client.app
+    assert isinstance(app, FastAPI)
+    app.dependency_overrides[get_binance_client] = lambda: mock_client
+
+    try:
+        # 1. Modo live: toma el ratio devuelto por Binance (0.75 / 0.25)
+        resp_live = test_client.get("/api/v1/heatmap/ETHUSDT?ratio_mode=live")
+        assert resp_live.status_code == 200
+        d_live = resp_live.json()
+        assert d_live["long_account_ratio"] == 0.75
+        assert d_live["short_account_ratio"] == 0.25
+        assert d_live["assumed_long_ratio"] == 0.75
+        assert d_live["ratio_source"] == "live"
+
+        # 2. Modo neutral: fuerza 50.0% / 50.0%
+        resp_neutral = test_client.get("/api/v1/heatmap/ETHUSDT?ratio_mode=neutral")
+        assert resp_neutral.status_code == 200
+        d_neutral = resp_neutral.json()
+        assert d_neutral["assumed_long_ratio"] == 0.50
+        assert d_neutral["ratio_source"] == "neutral"
+
+        # 3. Fallback: cuando get_global_long_short_ratio falla, se usa (0.50, 0.50) sin romper la API
+        mock_client.get_global_long_short_ratio.side_effect = Exception(
+            "Binance ratio endpoint error"
+        )
+        resp_fallback = test_client.get("/api/v1/heatmap/ETHUSDT?ratio_mode=live")
+        assert resp_fallback.status_code == 200
+        d_fallback = resp_fallback.json()
+        assert d_fallback["long_account_ratio"] == 0.50
+        assert d_fallback["short_account_ratio"] == 0.50
+        assert d_fallback["assumed_long_ratio"] == 0.50
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_manual_dashboard(test_client: TestClient) -> None:
+    """Verifica que /manual responda 200 con el manual y guía de usuario."""
+    resp = test_client.get("/manual")
+    assert resp.status_code == 200
+    assert "text/html" in resp.headers["content-type"]
+    assert "Manual de Usuario" in resp.text

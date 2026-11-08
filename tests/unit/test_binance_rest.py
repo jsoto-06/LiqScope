@@ -466,3 +466,68 @@ async def test_market_data_cache_error_not_cached() -> None:
     # Se realizaron 2 peticiones adicionales (total 3: 1 fallida + 2 recuperadas)
     assert mock_session.get.call_count == 4
     assert "BTCUSDT" in BinanceFuturesRestClient._market_data_cache
+
+
+@pytest.mark.asyncio
+async def test_global_long_short_ratio_success_and_cache() -> None:
+    """Verifica consulta exitosa de ratio global y funcionamiento de su caché determinista."""
+    mock_session = MagicMock(spec=aiohttp.ClientSession)
+    mock_session.closed = False
+    fake_ratio_data = [
+        {
+            "symbol": "BTCUSDT",
+            "longAccount": "0.7790",
+            "shortAccount": "0.2210",
+            "longShortRatio": "3.5249",
+            "timestamp": 1729630000000,
+        }
+    ]
+    mock_session.get.return_value = MockResponse(status=200, json_data=fake_ratio_data)
+    BinanceFuturesRestClient.clear_cache()
+
+    clock_time = 1000.0
+    client = BinanceFuturesRestClient(
+        session=mock_session, cache_ttl_sec=10.0, clock=lambda: clock_time
+    )
+
+    # 1. Miss inicial
+    long_r, short_r, ts = await client.get_global_long_short_ratio("BTCUSDT")
+    assert long_r == 0.7790
+    assert short_r == 0.2210
+    assert ts == 1729630000000
+    assert mock_session.get.call_count == 1
+
+    # 2. Hit en caché dentro de TTL
+    clock_time = 1005.0
+    long_r2, short_r2, ts2 = await client.get_global_long_short_ratio("BTCUSDT")
+    assert (long_r2, short_r2, ts2) == (0.7790, 0.2210, 1729630000000)
+    assert mock_session.get.call_count == 1
+
+    # 3. Expiración de TTL
+    clock_time = 1015.0
+    long_r3, short_r3, ts3 = await client.get_global_long_short_ratio("BTCUSDT")
+    assert (long_r3, short_r3, ts3) == (0.7790, 0.2210, 1729630000000)
+    assert mock_session.get.call_count == 2
+
+
+@pytest.mark.asyncio
+async def test_global_long_short_ratio_malformed_and_empty() -> None:
+    """Verifica manejo de listas vacías o respuestas con claves faltantes."""
+    mock_session = MagicMock(spec=aiohttp.ClientSession)
+    mock_session.closed = False
+    BinanceFuturesRestClient.clear_cache()
+    client = BinanceFuturesRestClient(session=mock_session)
+
+    # Lista vacía
+    mock_session.get.return_value = MockResponse(status=200, json_data=[])
+    with pytest.raises(BinanceRestError) as exc_empty:
+        await client.get_global_long_short_ratio("BTCUSDT")
+    assert exc_empty.value.status_code == 502
+
+    # Clave faltante o tipo inválido
+    mock_session.get.return_value = MockResponse(
+        status=200, json_data=[{"symbol": "BTCUSDT", "wrongKey": "123"}]
+    )
+    with pytest.raises(BinanceRestError) as exc_key:
+        await client.get_global_long_short_ratio("BTCUSDT")
+    assert exc_key.value.status_code == 502

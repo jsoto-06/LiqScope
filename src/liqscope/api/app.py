@@ -43,6 +43,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         """Dashboard interactivo visual del Heatmap."""
         return HTMLResponse(content=get_dashboard_html(), status_code=200)
 
+    @app.get("/manual", response_class=HTMLResponse, include_in_schema=False)
+    async def manual() -> HTMLResponse:
+        """Manual de usuario detallado y guía de telemetría."""
+        return HTMLResponse(content=get_dashboard_html(), status_code=200)
+
     @app.get("/health", tags=["Health"])
     async def health_check() -> dict[str, str]:
         """Endpoint de salud del servicio."""
