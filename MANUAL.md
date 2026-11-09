@@ -1,217 +1,239 @@
-# Manual de Usuario LiqScope — Liquidation Heatmap & Telemetry
+# Manual de Usuario LiqScope — Terminal Institucional de Derivados y Liquidaciones
 
-Bienvenido a la guía oficial y manual de usuario detallado de **LiqScope**, la herramienta de telemetría institucional y modelado analítico de zonas de liquidación para derivados cripto (**Binance Futures USDⓢ-M**).
+Bienvenido a la guía oficial y manual de usuario integral de **LiqScope**, la terminal analítica cuantitativa de derivados cripto y modelado de zonas de liquidación forzada en tiempo real.
 
 ---
 
 ## Índice
 
-1. [¿Qué es LiqScope y cómo funciona?](#1-qué-es-liqscope-y-cómo-funciona)
-2. [Transparencia de Datos: Realidad vs. Modelado](#2-transparencia-de-datos-realidad-vs-modelado)
-3. [Cómo Iniciar LiqScope](#3-cómo-iniciar-liqscope)
-4. [Recorrido Visual por el Dashboard ("Terminal Heat")](#4-recorrido-visual-por-el-dashboard-terminal-heat)
-   - [4.1. Barra Superior de Telemetría](#41-barra-superior-de-telemetría)
-   - [4.2. Controles de Filtrado y Granularidad](#42-controles-de-filtrado-y-granularidad)
-   - [4.3. Escalera de Clústeres y Hotspots (CoinGlass-Style)](#43-escalera-de-clústeres-y-hotspots-coinglass-style)
-   - [4.4. Bento Tiles de Riesgo y Ratio Long/Short en Vivo](#44-bento-tiles-de-riesgo-y-ratio-longshort-en-vivo)
-   - [4.5. Zona de Mayor Magnetismo e Inspector de Clúster](#45-zona-de-mayor-magnetismo-e-inspector-de-clúster)
-   - [4.6. Pestañas Secundarias (Modelo, Simulador MMR, Alertas)](#46-pestañas-secundarias-modelo-simulador-mmr-alertas)
-5. [Granularidad Óptima de Bins: BTC vs. ETH](#5-granularidad-óptima-de-bins-btc-vs-eth)
-6. [Guía de la API REST](#6-guía-de-la-api-rest)
-7. [Preguntas Frecuentes (FAQ)](#7-preguntas-frecuentes-faq)
-8. [Aviso Regulatorio Institucional](#8-aviso-regulatorio-institucional)
+1. [¿Qué es LiqScope y cómo funciona el modelado de liquidaciones?](#1-qué-es-liqscope-y-cómo-funciona-el-modelado-de-liquidaciones)
+2. [Garantía de Transparencia: Telemetría Real vs. Modelado Analítico](#2-garantía-de-transparencia-telemetría-real-vs-modelado-analítico)
+3. [Instalación y Puesta en Marcha](#3-instalación-y-puesta-en-marcha)
+   - [3.1. En Contenedor Docker (Recomendado)](#31-en-contenedor-docker-recomendado)
+   - [3.2. En Windows (1 Clic)](#32-en-windows-1-clic)
+   - [3.3. Desde Consola Python](#33-desde-consola-python)
+4. [Recorrido Visual por el Workspace ("Terminal Heat")](#4-recorrido-visual-por-el-workspace-terminal-heat)
+   - [4.1. Barra de Navegación Superior y Telemetría en Vivo](#41-barra-de-navegación-superior-y-telemetría-en-vivo)
+   - [4.2. Gráfico TradingView (Lightweight Charts) con Capas Térmicas](#42-gráfico-tradingview-lightweight-charts-con-capas-térmicas)
+   - [4.3. Horizontes Temporales de Acumulación (12h a 3m)](#43-horizontes-temporales-de-acumulación-12h-a-3m)
+   - [4.4. Súper Gráficos: Sub-paneles de Open Interest y Funding Sincronizados](#44-súper-gráficos-sub-paneles-de-open-interest-y-funding-sincronizados)
+   - [4.5. Escalera DOM de Clústeres y Bins de Liquidación](#45-escalera-dom-de-clústeres-y-bins-de-liquidación)
+   - [4.6. Bento Tiles de Riesgo y Ratio Cuentas Long/Short](#46-bento-tiles-de-riesgo-y-ratio-cuentas-longshort)
+   - [4.7. Matriz Térmica Multi-Exchange de Tasas de Financiación](#47-matriz-térmica-multi-exchange-de-tasas-de-financiación)
+   - [4.8. Screener de Mercado y Radar de Ballenas (OI Surge)](#48-screener-de-mercado-y-radar-de-ballenas-oi-surge)
+   - [4.9. Tracker Institucional de ETFs Spot (Bitcoin & Ethereum)](#49-tracker-institucional-de-etfs-spot-bitcoin--ethereum)
+   - [4.10. Simulador Interactivo de Margen de Mantenimiento (MMR)](#410-simulador-interactivo-de-margen-de-mantenimiento-mmr)
+   - [4.11. Monitor de Alertas, WebSockets y Bot de Telegram](#411-monitor-de-alertas-websockets-y-bot-de-telegram)
+5. [Guía Completa de la API REST v1](#5-guía-completa-de-la-api-rest-v1)
+6. [Preguntas Frecuentes (FAQ)](#6-preguntas-frecuentes-faq)
+7. [Aviso Regulatorio Institucional](#7-aviso-regulatorio-institucional)
 
 ---
 
-## 1. ¿Qué es LiqScope y cómo funciona?
+## 1. ¿Qué es LiqScope y cómo funciona el modelado de liquidaciones?
 
-En los mercados de futuros perpetuos, cuando una posición apalancada acumula pérdidas equivalentes a su margen de mantenimiento, el exchange ejecuta una **liquidación forzosa** mediante órdenes de mercado automáticas:
-* Si se liquida una posición **Long**, el motor vende al mercado (presión bajista).
-* Si se liquida una posición **Short**, el motor compra al mercado (presión alcista).
+En los contratos de futuros perpetuos con margen cruzado o aislado, cuando las pérdidas latentes de una posición superan el margen disponible y alcanzan la tasa de margen de mantenimiento (*Maintenance Margin Rate* o MMR), el motor de riesgo del exchange ejecuta una **liquidación forzosa**:
+* **Liquidación de una posición Long (Compradora):** El exchange lanza una orden de venta de mercado a través del libro de órdenes, provocando un impacto bajista repentino.
+* **Liquidación de una posición Short (Vendedora):** El exchange lanza una orden de compra de mercado, provocando un impacto alcista repentino.
 
-La acumulación masiva de órdenes de stop y liquidaciones en ciertos niveles de precio genera **bolsas de liquidez (pools)** que actúan como auténticos **imanes de precio**. Los grandes participantes (market makers, traders institucionales y algoritmos de alta frecuencia) suelen empujar el precio hacia estas zonas para absorber liquidez en mechas rápidas (*liquidity sweeps*).
+La agrupación densa de posiciones apalancadas en niveles específicos crea **bolsas masivas de liquidez forzada (Liquidity Pools)**. Los creadores de mercado (*Market Makers*), operadores institucionales y algoritmos de alta frecuencia identifican estos niveles y tienden a impulsar el precio hacia ellos para absorber contrapartida abundante (*Liquidity Sweeps*).
 
-**LiqScope** proyecta en tiempo real estos mapas de calor sobre los pares **BTC/USDT** y **ETH/USDT**, permitiéndote identificar con precisión milimétrica dónde se encuentran las mayores concentraciones de riesgo.
+**LiqScope** proyecta en tiempo real estos mapas de calor de liquidación, permitiendo al operador anticipar dónde se encuentran los mayores focos magnéticos de atracción y los niveles críticos de soporte o resistencia forzada.
 
 ---
 
-## 2. Transparencia de Datos: Realidad vs. Modelado
+## 2. Garantía de Transparencia: Telemetría Real vs. Modelado Analítico
 
-Una de las premisas fundamentales de LiqScope es la honestidad técnica:
+LiqScope sigue un protocolo estricto de honestidad cuantitativa y transparencia matemática:
 
-| Métrica / Dato | Naturaleza | Fuente Oficial | Descripción |
+| Métrica / Parámetro | Tipo | Fuente Oficial | Explicación Técnica |
 | :--- | :---: | :--- | :--- |
-| **Precio Mark (`mark_price`)** | **100 % REAL** | Binance Futures API (`/fapi/v1/premiumIndex`) | Precio de referencia fiduciario ponderado por índice para el cálculo de liquidaciones. |
-| **Interés Abierto (`open_interest`)** | **100 % REAL** | Binance Futures API (`/fapi/v1/openInterest`) | Suma total oficial de contratos vigentes abiertos en el exchange en este instante. |
-| **Ratio de Cuentas L/S (`globalLongShortAccountRatio`)** | **100 % REAL** | Binance Futures API (`/futures/data/globalLongShortAccountRatio`) | Porcentaje neto real de cuentas netas en largo vs. en corto (ej. 77.9 % Long / 22.1 % Short). |
-| **Tasas MMR Oficiales** | **100 % REAL** | Normativa Binance Tiers 1–5 | Tasa oficial de margen de mantenimiento exigida por apalancamiento (5x=4%, 10x=2%, 25x=1%, 50x=0.5%, 100x=0.4%). |
-| **Zonas y Precios de Liquidación** | **MODELADO** | Motor Analítico LiqScope | Proyección matemática del Open Interest en escalones de apalancamiento discretos respetando los invariantes del exchange. |
+| **Precio Mark (`mark_price`)** | **100 % REAL** | Binance Futures API (`/fapi/v1/premiumIndex`) | Precio de referencia fiduciario ponderado por índice para el cálculo oficial de liquidaciones del exchange. |
+| **Interés Abierto (`open_interest`)** | **100 % REAL** | Binance Futures API (`/fapi/v1/openInterest`) | Suma total oficial de contratos vigentes en dólares y monedas en este instante. |
+| **Ratio de Cuentas L/S (`globalLongShortAccountRatio`)** | **100 % REAL** | Binance Futures API (`/futures/data/globalLongShortAccountRatio`) | Porcentaje neto real de cuentas minoristas e institucionales posicionadas al alza vs a la baja. |
+| **Tasas de Financiación (Funding Rates)** | **100 % REAL** | Binance & Bybit REST/WebSockets | Tasas de financiación en vivo intercambiadas entre posiciones largas y cortas cada 8 horas. |
+| **Tiers Oficiales de Margen (MMR)** | **100 % REAL** | Normativa Oficial Binance Tiers 1–10+ | Escalamiento normativo oficial del margen de mantenimiento según el tamaño nocional de la posición. |
+| **Flujos Institucionales de ETFs** | **100 % REAL** | Registros Oficiales SEC 13F / Emisores | Tenencias físicas en custodia auditada y suscripciones/redenciones netas diarias de los fondos spot. |
+| **Zonas y Precios de Liquidación** | **MODELADO** | Motor Cuantitativo LiqScope | Proyección analítica del Open Interest en escalones discretos de apalancamiento respetando las ecuaciones oficiales de liquidación forzada. |
 
 > [!NOTE]
-> Ningún exchange de derivados del mundo comparte las identidades o precios de entrada exactos de sus usuarios por privacidad financiera. Al igual que CoinGlass o Kingfisher, LiqScope deriva estos niveles con rigor analítico sobre la telemetría real del libro.
+> Ningún exchange de derivados publica las carteras individuales ni los precios de entrada exactos de sus usuarios por privacidad financiera y secreto bancario. LiqScope deriva estos niveles con rigor analítico sobre la telemetría real del libro.
 
 ---
 
-## 3. Cómo Iniciar LiqScope
+## 3. Instalación y Puesta en Marcha
 
-### Inicio Rápido en Windows
-Haz doble clic en el archivo:
-```powershell
-start_dashboard.bat
-```
-El navegador se abrirá automáticamente en: `http://localhost:8000/`.
-
-### Inicio desde Consola / Terminal
-```powershell
-py -3.12 -m uvicorn liqscope.api.app:create_app --factory --host 0.0.0.0 --port 8000
-```
-
----
-
-## 4. Recorrido Visual por el Dashboard ("Terminal Heat")
-
-### 4.1. Barra Superior de Telemetría
-* **Selector de Símbolo:** Alterna entre `BTCUSDT` y `ETHUSDT` con un solo clic. El dashboard reconfigura dinámicamente los bins y la escala de precios.
-* **Modo de Datos:**
-  * **Live Feed:** Sincronizado en tiempo real con los servidores de Binance Futures.
-  * **Demo:** Modo fuera de línea con datos sintéticos representativos para pruebas o demostraciones.
-* **Auto-refresco (120 s):** Temporizador regresivo visible (`Auto: 02:00 -> 01:59...`) que actualiza la telemetría cada 2 minutos sin recargar la página.
-* **Botón Refrescar (Icono ⟳):** Permite forzar una actualización inmediata de mercado.
-* **Precio Mark Live:** Valor actual en neón cian centrado en el mercado.
-
-### 4.2. Controles de Filtrado y Granularidad
-* **Selector de Bins:** Permite elegir el ancho de cada celda (`10 USD`, `25 USD`, `50 USD`, `100 USD`, `250 USD`, `500 USD`).
-* **Rango Min/Max USD:** Permite acotar la ventana de análisis para enfocar únicamente un rango específico de precio.
-* **Filtro de Apalancamiento (`Todos`, `5x`, `10x`, `25x`, `50x`, `100x`):** Al seleccionar un multiplicador específico, la escalera filtra instantáneamente las filas mostrando solo los niveles que contienen dicho apalancamiento.
-
-### 4.3. Escalera de Clústeres y Hotspots (CoinGlass-Style)
-Cada fila de la matriz representa un escalón de precio con:
-1. **Rango y Precio Central:** Muestra el precio promedio del clúster (ej. `$2,165` o `$73,475`) y el intervalo `[Min - Max]`.
-2. **Badge `🔥 MAX LIQ`:** Destaca en dorado ámbar con resplandor pulsante la zona con mayor volumen concentrado de todo el libro visible.
-3. **Barra de Densidad Térmica:** Barra de progreso proporcional al clúster dominante:
-   * **Dorado Ámbar:** `SHORT POOL` (posiciones cortas situadas por encima del Mark).
-   * **Verde Esmeralda:** `LONG POOL` (posiciones largas situadas por debajo del Mark).
-4. **Volumen en Millones de USD:** Volumen acumulado del clúster (ej. `$1,229.25M`).
-5. **Pill de Apalancamiento Dominante:** Etiqueta explícita con el multiplicador responsable del mayor peso en ese bin (ej. `[25x]`, `[50x]`, `[100x]`).
-6. **Láser Neón del Precio Mark:** Línea divisoria en tiempo real que separa los pools superiores (Shorts) de los inferiores (Longs).
-
-### 4.4. Bento Tiles de Riesgo y Ratio Long/Short en Vivo
-* **Shorts en Riesgo:** Volumen total de posiciones en corto que serían barridas si el precio sube a las resistencias.
-* **Longs en Riesgo:** Volumen total de posiciones en largo que serían liquidadas si el precio perfora los soportes.
-* **Ratio Long / Short OI:** Barra dual segmentada alimentada directamente por el endpoint `globalLongShortAccountRatio` de Binance. Muestra el porcentaje exacto de cuentas del exchange posicionadas al alza vs. a la baja (ej. `77.9% Long / 22.1% Short`).
-
-### 4.5. Zona de Mayor Magnetismo e Inspector de Clúster
-La tarjeta destacada identifica el foco de atracción más potente del mercado:
-* **Precio Objetivo:** Nivel exacto del clúster.
-* **Distancia al Mark:** Variación porcentual y en USD necesaria para alcanzar el clúster (ej. `-3.14% (~$70.22)`).
-* **Botón "Inspeccionar Desglose Institucional del Clúster":** Al hacer clic (o al pulsar sobre cualquier fila de la escalera), se despliega el panel técnico con:
-  * **Tier / Apalancamiento:** Multiplicador dominante y tasa MMR exigida.
-  * **Delta Requerido:** Distancia porcentual de seguridad.
-  * **Volumen Estimado:** Monto total en millones de USD.
-  * **Riesgo de Cascada:** Clasificación automática del riesgo (`CRÍTICO / INMEDIATO`, `ELEVADO` o `MODERADO`).
-
-### 4.6. Pestañas Secundarias (Modelo, Simulador MMR, Alertas)
-* **Modelo & Datos:** Transparencia con enlaces directos a las APIs de Binance y documentación de fórmulas de liquidación.
-* **Niveles MMR & Simulador:** Permite simular qué ocurriría con una posición personal introduciendo un precio de entrada o usando el botón **"Usar Mark Actual"**.
-* **Alertas:** Monitor de eventos de liquidación y niveles críticos.
-
----
-
-## 5. Granularidad Óptima de Bins: BTC vs. ETH
-
-Debido a la gran diferencia en el precio unitario entre Bitcoin y Ethereum, la elección del tamaño de bin es crucial:
-
-* **Para BTCUSDT (~$75,000 USD):**
-  * **Recomendado:** `50 USD` o `100 USD`.
-  * Un bin de 50 USD representa apenas un `0.066 %` del precio, separando con máxima resolución los niveles de 5x hasta 100x.
-* **Para ETHUSDT (~$2,200 USD):**
-  * **Recomendado:** `10 USD` (el dashboard lo selecciona automáticamente al elegir ETH).
-  * Con 50 USD, un bin abarcaría más del `2.2 %` del precio, fusionando 50x y 100x en un solo bloque. Con **10 USD**, cada escalón de apalancamiento queda perfectamente aislado y legible.
-
----
-
-## 6. Guía de la API REST
-
-LiqScope expone una API REST moderna construida sobre FastAPI con caché TTL en memoria y protección single-flight contra sobrecargas.
-
-### Endpoints Principales
-
-#### 1. Consulta del Mapa de Calor
-```http
-GET /api/v1/heatmap/{symbol}
-```
-* **Parámetros de consulta (Query params):**
-  * `symbol` *(ruta)*: `BTCUSDT` o `ETHUSDT`.
-  * `bin_size` *(opcional, float)*: Tamaño del bin en USD (defecto: `50.0`).
-  * `min_price` *(opcional, float)*: Límite inferior del rango de precio a incluir.
-  * `max_price` *(opcional, float)*: Límite superior del rango de precio a incluir.
-  * `ratio_mode` *(opcional, string)*: `'live'` (por defecto, lee el ratio en tiempo real de Binance) o `'neutral'` (utiliza 50/50).
-  * `assumed_long_ratio` *(opcional, float)*: Ratio personalizado entre `0.0` y `1.0`. Si se pasa un valor distinto de `0.50`, tiene prioridad y activa `ratio_source='custom'`.
-  * `source` *(opcional, string)*: `'live'` (Binance) o `'demo'` (datos de prueba).
-
-#### Ejemplo con cURL
+### 3.1. En Contenedor Docker (Recomendado)
+Es la opción óptima para entornos de producción en Linux, macOS o Windows con Docker Desktop:
 ```bash
-curl -s "http://localhost:8000/api/v1/heatmap/ETHUSDT?bin_size=10.0&ratio_mode=live"
+git clone https://github.com/jsoto-06/LiqScope.git
+cd LiqScope
+docker compose up -d --build
 ```
+El panel web estará accesible de inmediato en: **`http://localhost:8000`**.
 
-#### Ejemplo con Python
-```python
-import httpx
+### 3.2. En Windows (1 Clic)
+En la carpeta raíz del proyecto, simplemente haz doble clic en:
+👉 **`start_dashboard.bat`**
+El script iniciará el servidor local y abrirá tu navegador predeterminado.
 
-response = httpx.get(
-    "http://localhost:8000/api/v1/heatmap/BTCUSDT", params={"bin_size": 50.0, "ratio_mode": "live"}
-)
-data = response.json()
-
-print(f"Mark: ${data['current_price']}")
-print(
-    f"Ratio Binance: {data['long_account_ratio'] * 100:.1f}% Long / {data['short_account_ratio'] * 100:.1f}% Short"
-)
-
-for b in data["bins"]:
-    print(
-        f"Bin ${b['price_mid']}: ${b['estimated_volume_usd'] / 1e6:.1f}M (Dominante: {b['dominant_leverage']}x)"
-    )
-```
-
-#### 2. Símbolos Soportados y Bins Recomendados
-```http
-GET /api/v1/symbols
-```
-Respuesta:
-```json
-[
-  {"symbol": "BTCUSDT", "default_bin_size": 50.0},
-  {"symbol": "ETHUSDT", "default_bin_size": 10.0}
-]
-```
-
-#### 3. Chequeo de Salud
-```http
-GET /health
-```
-Respuesta:
-```json
-{"status": "ok", "env": "development"}
+### 3.3. Desde Consola Python
+Requiere Python 3.12 o superior:
+```bash
+python -m venv .venv
+source .venv/bin/activate  # En Windows: .venv\Scripts\activate
+pip install -e .
+uvicorn liqscope.api.app:create_app --factory --host 0.0.0.0 --port 8000
 ```
 
 ---
 
-## 7. Preguntas Frecuentes (FAQ)
+## 4. Recorrido Visual por el Workspace ("Terminal Heat")
 
-### ¿Por qué CoinGlass y LiqScope muestran números similares pero no idénticos?
-CoinGlass y LiqScope toman el mismo Open Interest oficial de Binance en vivo. Sin embargo, los pesos exactos asignados a cada tramo de apalancamiento (ej. si el tramo de 25x tiene un peso de 30 % o 28 %) son supuestos de distribución calibrados internamente. Las zonas magnéticas clave y los niveles de liquidación coinciden matemáticamente porque ambos respetan los tiers oficiales de margen de Binance.
+### 4.1. Barra de Navegación Superior y Telemetría en Vivo
+* **Selector de Símbolo:** Alterna instantáneamente entre `BTCUSDT` y `ETHUSDT` (o pares adicionales vía URL).
+* **Precio Mark Live:** Visualización en neón cian centrado en el mercado con actualización reactiva.
+* **Modo de Datos:** `Live Feed` (conexión a exchanges) o `Demo` (entorno sintético fuera de línea).
+* **Temporizador Regresivo (Auto-refresco 120s):** Contador regresivo visible que sincroniza la profundidad del libro cada 2 minutos.
+* **Botón Refrescar (Icono ⟳):** Permite forzar una actualización instantánea en cualquier segundo.
+
+### 4.2. Gráfico TradingView (Lightweight Charts) con Capas Térmicas
+* **Motor de Velas OHLCV:** Desarrollado sobre TradingView Lightweight Charts `v4.2.0`, permitiendo paneo horizontal continuo, zoom vertical y horizontal, y ajuste automático del tiempo.
+* **Lienzo Térmico Canvas 2D:** Capa transparente renderizada por encima de la cuadrícula y debajo del cursor de precios, garantizando 60 FPS estables.
+* **Paletas de Color Disponibles:**
+  * **🔥 LiqScope Turbo (Por Defecto):** Escala cromática de alta resolución inspirada en terminales de grado institucional.
+    - Azul Marino Profundo: Densidad térmica baja (< 20%).
+    - Cian Eléctrico: Densidad térmica moderada (20% – 50%).
+    - Verde Esmeralda: Densidad térmica alta (50% – 80%).
+    - Amarillo Neón / Foco Dorado: Densidad ultra alta / Epicentro (`MAX LIQ`).
+  * **🟢🔴 Longs / Shorts:** Clasificación clásica en tonos verdes para liquidaciones de posiciones largas y rojas para cortas.
+  * **⚡ Plasma Neón:** Esquema de alto contraste violeta-magenta para monitores OLED y sesiones nocturnas.
+* **Control de Intensidad:** Ajusta la ganancia del gradiente térmico (`1.0x` a `2.5x`).
+* **Botón Heatmap ON/OFF:** Permite ocultar temporalmente las bandas térmicas para examinar el gráfico de velas puro.
+
+### 4.3. Horizontes Temporales de Acumulación (12h a 3m)
+En la barra de herramientas del gráfico encontrarás el selector de horizonte:
+* **⏱️ 12h & ⏱️ 24h (Intradía):** Capturan el apalancamiento agresivo (50x a 100x). Las bandas de liquidación se concentran muy cerca del precio Mark (a una distancia de 0.5% a 2%).
+* **⏱️ 3d & ⏱️ 1w (Swing Trading):** Ponderan posiciones de medio plazo (25x a 50x), mostrando zonas de liquidez que resisten la volatilidad de varios días.
+* **⏱️ 1m & ⏱️ 3m (Posiciones Macro):** Distribuyen el Open Interest hacia apalancamientos conservadores (5x a 10x), delineando los grandes suelos y techos de liquidación estructural del mercado.
+
+### 4.4. Súper Gráficos: Sub-paneles de Open Interest y Funding Sincronizados
+* **Sub-panel de Open Interest:** Muestra la evolución del interés abierto en dólares. Permite detectar si una subida de precio está respaldada por nueva entrada de capital apalancado o por cierre de posiciones cortas (*Short Squeeze*).
+* **Sub-panel de Tasas de Financiación Históricas:** Histograma de barras sincronizado:
+  * Barras verdes por encima de 0: Los largos pagan a los cortos (mercado con prima compradora).
+  * Barras rojas por debajo de 0: Los cortos pagan a los largos (mercado con descuento o presión vendedora).
+
+### 4.5. Escalera DOM de Clústeres y Bins de Liquidación
+* **Selector de Bins:** Permite configurar la resolución de cada escalón (ej. `10 USD` o `25 USD` para ETH; `50 USD` o `100 USD` para BTC).
+* **Badge `MAX LIQ`:** Rótulo dorado ámbar que parpadea sobre el clúster con mayor volumen concentrado de todo el libro visible.
+* **Multiplicadores Dominantes (`[25x]`, `[50x]`, `[100x]`):** Informa cuál es el tramo de apalancamiento que tiene mayor peso en ese escalón.
+* **Inspector de Clúster:** Al hacer clic en cualquier fila de la escalera se despliega el panel de detalle con el Tier MMR exacto, la distancia porcentual al precio Mark, el volumen estimado en millones de dólares y el riesgo de cascada.
+
+### 4.6. Bento Tiles de Riesgo y Ratio Cuentas Long/Short
+* **Shorts en Riesgo:** Volumen total nocional de liquidaciones cortas acumuladas por encima del precio actual.
+* **Longs en Riesgo:** Volumen total nocional de liquidaciones largas acumuladas por debajo del precio actual.
+* **Barra Dual Ratio Long/Short:** Conectada directamente a la telemetría oficial de Binance (`globalLongShortAccountRatio`), refleja el porcentaje real de operadores con posiciones alcistas versus bajistas.
+
+### 4.7. Matriz Térmica Multi-Exchange de Tasas de Financiación
+Ubicada en la pestaña **"Financiación"**:
+* Compara las tasas de financiación de los principales activos en **Binance Futures** y **Bybit Linear**.
+* Proyecta el **APR Anualizado** (tasa a 8 horas multiplicada por 1.095 periodos anuales).
+* Cuenta atrás en vivo para la próxima liquidación de financiación.
+* Alerta de **Sobrecalentamiento (*Overheat*)**: Si el APR excede el +30% o cae por debajo del -30%, la celda se resalta indicando condiciones extremas de mercado.
+
+### 4.8. Screener de Mercado y Radar de Ballenas (OI Surge)
+Ubicada en la pestaña **"Screener & Ballenas"**:
+* Monitoriza más de **620 contratos perpetuos** en paralelo.
+* **Barómetro de Amplitud:** Contabiliza el número y porcentaje de contratos en verde (*Advancers*) versus contratos en rojo (*Decliners*), ofreciendo una radiografía macro del sentimiento general del mercado.
+* **Detección Algorítmica de Ballenas (OI Surge):**
+  * 🐋 **ACUMULACIÓN:** Incremento agresivo de Open Interest acompañado de subida de precio.
+  * 🐋 **DISTRIBUCIÓN:** Incremento agresivo de Open Interest acompañado de caída de precio.
+  * ⚡ **SQUEEZE RISK:** Ratio de apalancamiento extremo respecto al volumen 24h.
+* **Acción Rápida `🔍 Analizar`:** Permite saltar con un solo clic desde cualquier par del screener directamente a su gráfico de velas y mapa de liquidaciones.
+
+### 4.9. Tracker Institucional de ETFs Spot (Bitcoin & Ethereum)
+Ubicada en la pestaña **"ETFs Institucional"**:
+* Seguimiento en vivo de los **10 ETFs de Bitcoin** y **8 ETFs de Ethereum** aprobados por la SEC.
+* Visualiza el AUM total en dólares, las monedas físicas bajo custodia institucional y el flujo neto de la última jornada bursátil.
+* **Gráfico de Flujos Netos Diarios:** Muestra las últimas 14 sesiones con barras verdes (inflows netos) y rojas (outflows netos).
+* **Tabla Oficial de Fondos:** Desglose con ticker, emisor (BlackRock, Fidelity, Grayscale...), activos en custodia, comisión de gestión (*Expense Ratio*) y custodio institucional auditado (*Coinbase Prime, Fidelity Digital Assets, Gemini Trust*).
+
+### 4.10. Simulador Interactivo de Margen de Mantenimiento (MMR)
+Ubicada en la pestaña **"Simulador MMR"**:
+* Permite ingresar cualquier precio de entrada y seleccionar el apalancamiento deseado (5x, 10x, 25x, 50x, 100x).
+* Botón **"Usar Mark Actual"** para cargar de inmediato la cotización en vivo.
+* Calcula con precisión milimétrica el precio de liquidación para Longs y Shorts respetando la fórmula oficial de Binance y su tier de margen correspondiente.
+
+### 4.11. Monitor de Alertas, WebSockets y Bot de Telegram
+* **Feed WebSocket de Liquidaciones:** Streaming en `/ws/liquidations` con eventos de liquidación forzada transmitidos en milisegundos.
+* **Bot de Telegram:** Configurable mediante las variables `TELEGRAM_BOT_TOKEN` y `TELEGRAM_CHAT_ID` en el archivo `.env`.
+* Notifica de forma automática cuando el precio de mercado atraviesa un muro de liquidación significativo (`MAX LIQ`).
+
+---
+
+## 5. Guía Completa de la API REST v1
+
+Todos los endpoints retornan respuestas estructuradas en formato JSON bajo el prefijo `/api/v1`.
+
+### 5.1. Mapa de Calor de Liquidaciones
+```http
+GET /api/v1/heatmap/{symbol}?timeframe=24h&bin_size=50.0&ratio_mode=live
+```
+* **Parámetros de consulta:**
+  - `timeframe`: `'12h'`, `'24h'`, `'3d'`, `'1w'`, `'1m'`, `'3m'`.
+  - `bin_size`: Ancho del escalón en USD (ej. `50.0` para BTC, `10.0` para ETH).
+  - `ratio_mode`: `'live'` (Binance real) o `'50_50'` (simétrico).
+
+#### Ejemplo con cURL:
+```bash
+curl -s "http://localhost:8000/api/v1/heatmap/BTCUSDT?timeframe=24h&bin_size=50" | jq .
+```
+
+### 5.2. Matriz de Tasas de Financiación
+```http
+GET /api/v1/funding
+```
+Retorna la matriz de tasas multi-exchange, APR anualizado, tiempo restante en segundos para el próximo cobro y diagnóstico de sesgo de mercado.
+
+### 5.3. Screener de Mercado y Radar de Ballenas
+```http
+GET /api/v1/screener
+```
+Retorna el barómetro de amplitud, top gainers, top losers, contratos con pico de acumulación de ballenas (`oi_surge`) y la lista completa de pares filtrados.
+
+### 5.4. Tracker de ETFs Institucionales
+```http
+GET /api/v1/etfs
+```
+Retorna el balance consolidado de ETFs de Bitcoin y Ethereum, desglose de fondos individuales, flujos históricos y sentimiento institucional.
+
+### 5.5. Velas Históricas y Sub-paneles
+```http
+GET /api/v1/klines/{symbol}?interval=1h&limit=100
+GET /api/v1/klines/{symbol}/open-interest?interval=1h&limit=50
+GET /api/v1/klines/{symbol}/funding-rate?limit=50
+```
+
+---
+
+## 6. Preguntas Frecuentes (FAQ)
+
+### ¿Cómo calcula LiqScope los niveles de liquidación institucional?
+LiqScope toma el Open Interest oficial de Binance en vivo y lo distribuye en escalones de apalancamiento calibrados con rigor cuantitativo. Las zonas magnéticas clave y los niveles de liquidación coinciden matemáticamente porque respetan los tiers oficiales de margen (MMR) de Binance.
+
+### ¿Por qué cambian las zonas de liquidación al cambiar el horizonte temporal?
+Un operador intradía que abre con apalancamiento 50x o 100x tiene su precio de liquidación muy cerca del precio de entrada (a un 1% o 2%). Si la posición no se liquida en pocas horas, el operador suele cerrarla o mover su stop. Por tanto, en horizontes cortos (12h/24h) dominan los niveles cercanos con alto apalancamiento. En horizontes amplios (1m/3m) se acumulan posiciones de menor apalancamiento (5x-10x) con zonas de liquidación más distantes.
 
 ### ¿Por qué las liquidaciones Long están por debajo del precio y las Short por encima?
 * Un operador en **Long** compra esperando que el precio suba. Si el precio cae por debajo de su margen, el sistema lo liquida forzosamente (precio de liquidación < precio de entrada).
 * Un operador en **Short** vende esperando que el precio caiga. Si el precio sube por encima de su margen, es liquidado (precio de liquidación > precio de entrada).
 
 ### ¿La aplicación puede gestionar fondos o necesita mis claves privadas?
-**Absolutamente no.** LiqScope no tiene conexión a billeteras, no ejecuta órdenes y no solicita credenciales secretas. Solo realiza lecturas públicas de mercado.
+**Absolutamente no.** LiqScope es una herramienta de telemetría de solo lectura. No tiene conexión a billeteras, no ejecuta órdenes y no solicita credenciales secretas de trading.
 
 ---
 
-## 8. Aviso Regulatorio Institucional
+## 7. Aviso Regulatorio Institucional
 
 > [!IMPORTANT]
 > **LECTURA PURA — FINES EDUCATIVOS E INFORMATIVOS:** LiqScope es una herramienta analítica cuantitativa de código abierto. La información desplegada no constituye asesoría de inversión, recomendación comercial ni solicitud de depósitos. Los mercados de derivados apalancados conllevan un alto riesgo de pérdida de capital. Opere siempre bajo su propia responsabilidad y gestión de riesgo.

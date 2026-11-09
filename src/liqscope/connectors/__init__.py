@@ -11,6 +11,12 @@ from liqscope.connectors.binance_rest import (
     UnsupportedSymbolError,
 )
 from liqscope.connectors.bybit import BybitConnector
+from liqscope.connectors.multi_exchange import (
+    ExchangeMarketQuote,
+    MultiExchangeAggregator,
+    MultiExchangeSnapshot,
+)
+from liqscope.connectors.telegram import TelegramClient
 
 __all__ = [
     "SUPPORTED_SYMBOLS",
@@ -22,5 +28,9 @@ __all__ = [
     "BybitConnector",
     "ConnectionStatus",
     "DataSource",
+    "ExchangeMarketQuote",
+    "MultiExchangeAggregator",
+    "MultiExchangeSnapshot",
+    "TelegramClient",
     "UnsupportedSymbolError",
 ]

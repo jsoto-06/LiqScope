@@ -69,6 +69,10 @@ class Settings(BaseSettings):
         default="https://api.hyperliquid.xyz/info",
         description="URL oficial de la API Info de Hyperliquid",
     )
+    kraken_futures_rest_url: str = Field(
+        default="https://futures.kraken.com/derivatives/api/v3",
+        description="URL oficial de la API REST de Kraken Futures",
+    )
 
     # Robustez, timeouts y reconexión
     ws_reconnect_min_delay_sec: float = Field(
@@ -100,6 +104,30 @@ class Settings(BaseSettings):
     distribution_config_path: Path = Field(
         default=Path("./config/default_distribution.yaml"),
         description="Ruta al archivo YAML de pesos y supuestos de apalancamiento",
+    )
+
+    # Notificaciones y alertas externas (Telegram Bot)
+    telegram_bot_token: str = Field(
+        default="",
+        description="Token de autorización del Bot de Telegram (ej. 123456:ABC-DEF)",
+    )
+    telegram_chat_id: str = Field(
+        default="",
+        description="ID numérico o @canal del chat receptor de alertas en Telegram",
+    )
+    telegram_alerts_enabled: bool = Field(
+        default=False,
+        description="Indica si el envío automático de alertas a Telegram está habilitado",
+    )
+    telegram_min_volume_usd: float = Field(
+        default=50_000_000.0,
+        ge=0,
+        description="Volumen nocional mínimo en USD para considerar una alerta en Telegram",
+    )
+    telegram_max_delta_pct: float = Field(
+        default=1.5,
+        gt=0,
+        description="Distancia porcentual máxima al Mark Price para activar alerta en Telegram",
     )
 
     @field_validator("binance_ws_url", "bybit_ws_url")

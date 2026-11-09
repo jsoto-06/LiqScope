@@ -28,55 +28,164 @@ MODELED_LEVERAGE_BRACKETS: list[tuple[float, float, float]] = [
     (100.0, 0.004, 0.10),
 ]
 
+# Perfiles cuantitativos de acumulación por horizonte temporal LiqScope
+TIMEFRAME_PROFILES: dict[str, dict[str, Any]] = {
+    "12h": {
+        "name": "12 Horas",
+        "description": "Scalping ultra-corto plazo (predominio 50x-100x)",
+        "leverage_brackets": [
+            (10.0, 0.020, 0.05),
+            (25.0, 0.010, 0.20),
+            (50.0, 0.005, 0.40),
+            (100.0, 0.004, 0.35),
+        ],
+        "entry_offsets": [0.0, 0.003, -0.003],
+        "offset_weights": [0.60, 0.20, 0.20],
+        "oi_factor": 0.45,
+    },
+    "24h": {
+        "name": "24 Horas",
+        "description": "Intradía diario (predominio 25x-50x)",
+        "leverage_brackets": [
+            (5.0, 0.040, 0.03),
+            (10.0, 0.020, 0.12),
+            (25.0, 0.010, 0.30),
+            (50.0, 0.005, 0.35),
+            (100.0, 0.004, 0.20),
+        ],
+        "entry_offsets": [0.0, 0.006, -0.006, 0.012, -0.012],
+        "offset_weights": [0.44, 0.20, 0.20, 0.08, 0.08],
+        "oi_factor": 0.65,
+    },
+    "3d": {
+        "name": "3 Días",
+        "description": "Táctico corto plazo (predominio 25x-50x)",
+        "leverage_brackets": [
+            (5.0, 0.040, 0.10),
+            (10.0, 0.020, 0.20),
+            (25.0, 0.010, 0.35),
+            (50.0, 0.005, 0.25),
+            (100.0, 0.004, 0.10),
+        ],
+        "entry_offsets": [0.0, 0.012, -0.012, 0.025, -0.025],
+        "offset_weights": [0.36, 0.22, 0.22, 0.10, 0.10],
+        "oi_factor": 0.80,
+    },
+    "1w": {
+        "name": "1 Semana",
+        "description": "Swing trading semanal (predominio 10x-25x)",
+        "leverage_brackets": [
+            (5.0, 0.040, 0.18),
+            (10.0, 0.020, 0.32),
+            (25.0, 0.010, 0.35),
+            (50.0, 0.005, 0.12),
+            (100.0, 0.004, 0.03),
+        ],
+        "entry_offsets": [0.0, 0.020, -0.020, 0.040, -0.040, 0.070, -0.070],
+        "offset_weights": [0.28, 0.18, 0.18, 0.12, 0.12, 0.06, 0.06],
+        "oi_factor": 0.90,
+    },
+    "1m": {
+        "name": "1 Mes",
+        "description": "Posicionamiento mensual (predominio 5x-10x)",
+        "leverage_brackets": [
+            (5.0, 0.040, 0.28),
+            (10.0, 0.020, 0.40),
+            (25.0, 0.010, 0.24),
+            (50.0, 0.005, 0.07),
+            (100.0, 0.004, 0.01),
+        ],
+        "entry_offsets": [0.0, 0.035, -0.035, 0.070, -0.070, 0.120, -0.120],
+        "offset_weights": [0.22, 0.18, 0.18, 0.13, 0.13, 0.08, 0.08],
+        "oi_factor": 0.98,
+    },
+    "3m": {
+        "name": "3 Meses",
+        "description": "Macro-estructural trimestral (predominio 5x-10x institucional)",
+        "leverage_brackets": [
+            (5.0, 0.040, 0.38),
+            (10.0, 0.020, 0.42),
+            (25.0, 0.010, 0.16),
+            (50.0, 0.005, 0.04),
+        ],
+        "entry_offsets": [0.0, 0.060, -0.060, 0.120, -0.120, 0.200, -0.200],
+        "offset_weights": [0.22, 0.18, 0.18, 0.14, 0.14, 0.07, 0.07],
+        "oi_factor": 1.00,
+    },
+}
+
 
 def generate_liquidation_levels(
     mark_price: float,
     total_oi_usd: float,
     assumed_long_ratio: float = 0.50,
+    timeframe: str = "24h",
 ) -> list[LiquidationLevel]:
-    """Genera los 10 niveles discretos de liquidación analítica para longs y shorts.
+    """Genera los niveles discretos de liquidación analítica para longs y shorts
+    según el horizonte temporal LiqScope seleccionado.
 
     Aplica los supuestos de MMR por escalón (MMR < 1/L) garantizando estrictamente
-    los invariantes de dirección de precio: P_liq_long < P_mark < P_liq_short.
+    los invariantes de dirección de precio: P_liq_long < P_mark < P_liq_short y
+    filtrando posiciones liquidadas previamente mediante purga de supervivencia.
     """
     if mark_price <= 0 or total_oi_usd <= 0:
         return []
 
+    profile = TIMEFRAME_PROFILES.get(timeframe.lower().strip(), TIMEFRAME_PROFILES["24h"])
+    leverage_brackets = profile["leverage_brackets"]
+    entry_offsets = profile.get("entry_offsets", [0.0])
+    offset_weights = profile.get("offset_weights", [1.0])
+    oi_factor = profile.get("oi_factor", 1.0)
+
+    effective_oi = total_oi_usd * oi_factor
+    long_total = effective_oi * assumed_long_ratio
+    short_total = effective_oi * (1.0 - assumed_long_ratio)
+
     levels: list[LiquidationLevel] = []
-    long_total = total_oi_usd * assumed_long_ratio
-    short_total = total_oi_usd * (1.0 - assumed_long_ratio)
 
     # 1. Proyectar Longs (P_liq < P_mark)
     if long_total > 0:
-        for leverage, mmr, weight in MODELED_LEVERAGE_BRACKETS:
-            delta = (1.0 / leverage) - mmr
-            p_liq = mark_price * (1.0 - delta)
-            vol = round(long_total * weight, 2)
-            levels.append(
-                LiquidationLevel(
-                    price=round(p_liq, 2),
-                    volume_usd=vol,
-                    leverage=leverage,
-                    side=PositionSide.LONG,
-                    origin=DataOrigin.MODELED,
-                )
-            )
+        for offset, o_weight in zip(entry_offsets, offset_weights, strict=False):
+            p_entry = mark_price * (1.0 + offset)
+            for leverage, mmr, lev_weight in leverage_brackets:
+                delta = (1.0 / leverage) - mmr
+                p_liq = p_entry * (1.0 - delta)
+                # Invariante estricto y purga de posiciones ya liquidadas en el pasado
+                if p_liq >= mark_price:
+                    continue
+                vol = round(long_total * lev_weight * o_weight, 2)
+                if vol > 0:
+                    levels.append(
+                        LiquidationLevel(
+                            price=round(p_liq, 2),
+                            volume_usd=vol,
+                            leverage=leverage,
+                            side=PositionSide.LONG,
+                            origin=DataOrigin.MODELED,
+                        )
+                    )
 
     # 2. Proyectar Shorts (P_liq > P_mark)
     if short_total > 0:
-        for leverage, mmr, weight in reversed(MODELED_LEVERAGE_BRACKETS):
-            delta = (1.0 / leverage) - mmr
-            p_liq = mark_price * (1.0 + delta)
-            vol = round(short_total * weight, 2)
-            levels.append(
-                LiquidationLevel(
-                    price=round(p_liq, 2),
-                    volume_usd=vol,
-                    leverage=leverage,
-                    side=PositionSide.SHORT,
-                    origin=DataOrigin.MODELED,
-                )
-            )
+        for offset, o_weight in zip(entry_offsets, offset_weights, strict=False):
+            p_entry = mark_price * (1.0 + offset)
+            for leverage, mmr, lev_weight in reversed(leverage_brackets):
+                delta = (1.0 / leverage) - mmr
+                p_liq = p_entry * (1.0 + delta)
+                # Invariante estricto y purga de posiciones ya liquidadas en el pasado
+                if p_liq <= mark_price:
+                    continue
+                vol = round(short_total * lev_weight * o_weight, 2)
+                if vol > 0:
+                    levels.append(
+                        LiquidationLevel(
+                            price=round(p_liq, 2),
+                            volume_usd=vol,
+                            leverage=leverage,
+                            side=PositionSide.SHORT,
+                            origin=DataOrigin.MODELED,
+                        )
+                    )
 
     return levels
 
@@ -95,6 +204,9 @@ def build_heatmap_snapshot(
     long_account_ratio: float = 0.50,
     short_account_ratio: float = 0.50,
     ratio_source: str = "live",
+    exchange: str = "all",
+    exchange_breakdown: dict[str, float] | None = None,
+    timeframe: str = "24h",
 ) -> HeatmapSnapshot:
     """Construye un snapshot de mapa de calor en bins agregados con filtrado atómico por rango."""
     sym = symbol.upper()
@@ -121,12 +233,16 @@ def build_heatmap_snapshot(
             long_account_ratio=long_account_ratio,
             short_account_ratio=short_account_ratio,
             ratio_source=ratio_source,
+            exchange=exchange,
+            exchange_breakdown=exchange_breakdown or {},
+            timeframe=timeframe,
         )
 
     levels = generate_liquidation_levels(
         mark_price=mark_price,
         total_oi_usd=total_open_interest_usd,
         assumed_long_ratio=assumed_long_ratio,
+        timeframe=timeframe,
     )
 
     # Agrupar niveles por índice de bin discreto
@@ -208,6 +324,9 @@ def build_heatmap_snapshot(
         long_account_ratio=round(long_account_ratio, 4),
         short_account_ratio=round(short_account_ratio, 4),
         ratio_source=ratio_source,
+        exchange=exchange,
+        exchange_breakdown=exchange_breakdown or {},
+        timeframe=timeframe,
     )
 
 

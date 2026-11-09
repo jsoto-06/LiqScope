@@ -152,3 +152,15 @@ class HeatmapSnapshot(BaseModel):
         default=True,
         description="Indica si el snapshot contiene datos íntegros o presenta huecos temporales",
     )
+    exchange: str = Field(
+        default="all",
+        description="Exchange de origen o 'all' para agregación global multi-exchange",
+    )
+    exchange_breakdown: dict[str, float] = Field(
+        default_factory=dict,
+        description="Desglose del Open Interest nocional en USD por exchange (Binance, Bybit, Hyperliquid, Kraken)",
+    )
+    timeframe: str = Field(
+        default="24h",
+        description="Horizonte temporal de acumulación de posiciones LiqScope ('12h', '24h', '3d', '1w', '1m', '3m')",
+    )

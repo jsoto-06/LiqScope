@@ -1,54 +1,38 @@
-"""Modelos de eventos de liquidación forzada de posiciones."""
+"""Modelos de datos para el feed de liquidaciones forzadas reales en tiempo real."""
 
-from datetime import UTC, datetime
+from __future__ import annotations
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from liqscope.models.common import DataCoverage, DataOrigin, Exchange, PositionSide
-
 
 class LiquidationEvent(BaseModel):
-    """Evento normalizado de liquidación forzada emitido por un exchange."""
+    """Evento de liquidación forzada real ejecutada en el mercado de derivados."""
 
     model_config = ConfigDict(frozen=True)
 
-    exchange: Exchange = Field(description="Exchange de origen de la liquidación")
-    symbol: str = Field(description="Símbolo del par (ej. BTCUSDT)")
-    side: PositionSide = Field(
-        description="Lado de la posición que fue liquidada (LONG o SHORT)",
-    )
-    price: float | None = Field(
-        default=None,
-        gt=0,
-        description="Precio de ejecución de la orden forzada (si está disponible)",
-    )
-    bankruptcy_price: float | None = Field(
-        default=None,
-        gt=0,
-        description="Precio de bancarrota reportado por el exchange",
-    )
-    quantity: float = Field(gt=0, description="Cantidad total de la orden de liquidación")
-    filled_quantity: float = Field(
-        ge=0,
-        description="Cantidad ejecutada/llenada de la liquidación",
-    )
-    usd_volume: float = Field(
-        gt=0,
-        description="Volumen nocional aproximado en USD (precio * cantidad)",
-    )
-    timestamp: datetime = Field(
-        default_factory=lambda: datetime.now(UTC),
-        description="Marca de tiempo en UTC del evento",
-    )
-    origin: DataOrigin = Field(
-        default=DataOrigin.OBSERVED,
-        description="Naturaleza del dato según ADR-011: OBSERVED o MODELED",
-    )
-    coverage: DataCoverage = Field(
-        default=DataCoverage.COMPLETE,
-        description="Cobertura del stream según ADR-011: COMPLETE o SAMPLED",
-    )
-    incomplete: bool = Field(
-        default=False,
-        description="Indica si hubo pérdida de continuidad por desconexión en el stream",
-    )
+    symbol: str = Field(description="Símbolo del par derivado (ej. BTCUSDT)")
+    side: str = Field(description="Dirección de la orden de liquidación (SELL o BUY)")
+    liquidated_side: str = Field(description="Posición del operador liquidado: LONG o SHORT")
+    price: float = Field(gt=0, description="Precio de liquidación base del contrato")
+    avg_price: float = Field(gt=0, description="Precio medio de ejecución real en el libro")
+    quantity: float = Field(gt=0, description="Cantidad liquidada en contratos/monedas")
+    volume_usd: float = Field(ge=0, description="Volumen total nocional liquidado en USD")
+    timestamp: int = Field(description="Marca temporal Unix en milisegundos")
+    is_whale: bool = Field(default=False, description="True si el volumen supera $100,000 USD")
+    is_mega_whale: bool = Field(default=False, description="True si el volumen supera $500,000 USD")
+    exchange: str = Field(default="binance", description="Exchange de origen de la liquidación")
+
+
+class LiquidationStats(BaseModel):
+    """Métricas acumuladas de liquidaciones observadas durante la sesión."""
+
+    model_config = ConfigDict(frozen=True)
+
+    total_count: int = Field(default=0, ge=0)
+    total_volume_usd: float = Field(default=0.0, ge=0)
+    long_count: int = Field(default=0, ge=0)
+    long_volume_usd: float = Field(default=0.0, ge=0)
+    short_count: int = Field(default=0, ge=0)
+    short_volume_usd: float = Field(default=0.0, ge=0)
+    whale_count: int = Field(default=0, ge=0)
+    largest_event: LiquidationEvent | None = Field(default=None)

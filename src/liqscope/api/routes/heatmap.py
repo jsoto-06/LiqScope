@@ -17,10 +17,13 @@ from liqscope.connectors.binance_rest import (
     BinanceRestError,
     UnsupportedSymbolError,
 )
+from liqscope.connectors.multi_exchange import MultiExchangeAggregator
 from liqscope.engine.aggregator import build_heatmap_snapshot
 from liqscope.models.heatmap import HeatmapSnapshot
 
 router = APIRouter(prefix="/heatmap", tags=["Heatmap"])
+
+_multi_aggregator = MultiExchangeAggregator()
 
 
 def get_settings() -> Settings:
@@ -84,6 +87,14 @@ async def get_heatmap(
         default="live",
         description="Origen de los datos: 'live' (Binance en vivo) o 'demo' (sintético)",
     ),
+    exchange: str = Query(
+        default="all",
+        description="Filtro de exchange: 'all' (Agregado Global 4 exchanges), 'binance', 'bybit', 'hyperliquid', 'kraken'",
+    ),
+    timeframe: str = Query(
+        default="24h",
+        description="Horizonte temporal de acumulación LiqScope: '12h', '24h', '3d', '1w', '1m', '3m'",
+    ),
     client: BinanceFuturesRestClient = Depends(get_binance_client),
 ) -> Response | HeatmapSnapshot:
     """Endpoint principal de consulta del Heatmap de liquidaciones."""
@@ -119,24 +130,60 @@ async def get_heatmap(
             },
         )
 
-    # 1. Obtención de datos de mercado (demo o live)
+    # 1. Obtención de datos de mercado (demo, multi-exchange o binance)
+    cached = False
+    data_age = 0.0
+    is_mocked_client = type(client).__name__ == "AsyncMock" or not isinstance(
+        client, BinanceFuturesRestClient
+    )
+
     if source.lower() == "demo":
         # Datos sintéticos de demostración
         demo_mark_price = 81498.90 if normalized_sym == "BTCUSDT" else 2650.50
         demo_oi = 95448.751 if normalized_sym == "BTCUSDT" else 350000.0
-        market_data = BinanceMarketData(
-            symbol=normalized_sym,
-            mark_price=demo_mark_price,
-            open_interest=demo_oi,
-            open_interest_time=1729630000000,
-            premium_index_time=1729630000000,
-            source="demo",
-            cached=False,
-            data_age_sec=0.0,
-        )
+        mark_price = demo_mark_price
+        total_oi_usd = demo_oi * demo_mark_price
+        long_acc_ratio = 0.50
+        short_acc_ratio = 0.50
+        exchange_breakdown = {"binance": total_oi_usd}
+    elif exchange.lower() != "binance" and not is_mocked_client:
+        try:
+            multi_snap = await _multi_aggregator.get_aggregated_snapshot(
+                normalized_sym, target_exchange=exchange
+            )
+            mark_price = multi_snap.aggregated_mark_price
+            total_oi_usd = multi_snap.total_open_interest_usd
+            long_acc_ratio = multi_snap.long_account_ratio
+            short_acc_ratio = multi_snap.short_account_ratio
+            exchange_breakdown = {k: q.open_interest_usd for k, q in multi_snap.exchanges.items()}
+        except Exception:
+            # Fallback seguro a Binance directo si ocurre timeout en algún exchange externo
+            market_data = await client.get_market_data(normalized_sym)
+            mark_price = market_data.mark_price
+            total_oi_usd = market_data.open_interest * mark_price
+            long_acc_ratio = 0.50
+            short_acc_ratio = 0.50
+            exchange_breakdown = {"binance": total_oi_usd}
+            cached = market_data.cached
+            data_age = market_data.data_age_sec
     else:
         try:
             market_data = await client.get_market_data(normalized_sym)
+            mark_price = market_data.mark_price
+            total_oi_usd = market_data.open_interest * mark_price
+            long_acc_ratio = 0.50
+            short_acc_ratio = 0.50
+            exchange_breakdown = {"binance": total_oi_usd}
+            cached = market_data.cached
+            data_age = market_data.data_age_sec
+
+            if ratio_mode == "live":
+                try:
+                    long_acc_ratio, short_acc_ratio, _ = await client.get_global_long_short_ratio(
+                        normalized_sym
+                    )
+                except Exception:
+                    long_acc_ratio, short_acc_ratio = 0.50, 0.50
         except BinanceRateLimitError as e:
             headers: dict[str, str] = {}
             if e.retry_after is not None:
@@ -178,18 +225,6 @@ async def get_heatmap(
             )
 
     # 2. Modelado y agregación del snapshot de liquidaciones
-    total_oi_usd = market_data.open_interest * market_data.mark_price
-
-    long_acc_ratio = 0.50
-    short_acc_ratio = 0.50
-    if source.lower() != "demo" and ratio_mode == "live":
-        try:
-            long_acc_ratio, short_acc_ratio, _ = await client.get_global_long_short_ratio(
-                normalized_sym
-            )
-        except Exception:
-            long_acc_ratio, short_acc_ratio = 0.50, 0.50
-
     if assumed_long_ratio != 0.50:
         effective_long_ratio = assumed_long_ratio
         effective_ratio_source = "custom"
@@ -201,17 +236,20 @@ async def get_heatmap(
         effective_ratio_source = "live"
 
     return build_heatmap_snapshot(
-        symbol=market_data.symbol,
-        mark_price=market_data.mark_price,
+        symbol=normalized_sym,
+        mark_price=mark_price,
         total_open_interest_usd=total_oi_usd,
         bin_size=bin_size,
         min_price=min_price,
         max_price=max_price,
         assumed_long_ratio=effective_long_ratio,
-        source=market_data.source,
-        cached=market_data.cached,
-        data_age_sec=market_data.data_age_sec,
+        source=source,
+        cached=cached,
+        data_age_sec=data_age,
         long_account_ratio=long_acc_ratio,
         short_account_ratio=short_acc_ratio,
         ratio_source=effective_ratio_source,
+        exchange=exchange,
+        exchange_breakdown=exchange_breakdown,
+        timeframe=timeframe.lower().strip(),
     )

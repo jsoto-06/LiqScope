@@ -1,4 +1,12 @@
-# LiqScope — Crypto Liquidation Heatmap
+# LiqScope — Institutional Crypto Liquidation Terminal & Derivatives Suite
+
+<p align="center">
+  <img src="https://img.shields.io/badge/LiqScope-Institutional%20Terminal-00f090?style=for-the-badge&logo=curseforge&logoColor=black" alt="LiqScope Terminal" />
+  <img src="https://img.shields.io/badge/FastAPI-0.115+-009688?style=for-the-badge&logo=fastapi&logoColor=white" alt="FastAPI" />
+  <img src="https://img.shields.io/badge/TradingView-Lightweight%20Charts-2962FF?style=for-the-badge&logo=tradingview&logoColor=white" alt="TradingView" />
+  <img src="https://img.shields.io/badge/Docker-Ready-2496ED?style=for-the-badge&logo=docker&logoColor=white" alt="Docker" />
+  <img src="https://img.shields.io/badge/License-MIT-ffd700?style=for-the-badge" alt="License" />
+</p>
 
 <p align="center">
   <a href="#-español"><b>🇪🇸 Versión en Español</b></a> &nbsp;|&nbsp; 
@@ -9,337 +17,215 @@
 
 # 🇪🇸 Español
 
-## LiqScope — Mapa de Calor de Liquidaciones Cripto
+## LiqScope — Terminal Institucional de Derivados y Mapas de Calor de Liquidaciones
 
 > [!IMPORTANT]
-> **Aviso de Responsabilidad:** Herramienta analítica de solo lectura con fines educativos e informativos. No constituye asesoramiento financiero ni señales de compra o venta. LiqScope **NO** gestiona fondos, **NO** ejecuta órdenes ni solicita claves privadas o API keys con permisos de trading.
+> **Aviso de Responsabilidad:** Herramienta analítica cuantitativa de código abierto para fines educativos e informativos. No constituye asesoramiento financiero ni recomendación comercial. LiqScope **NO** custodia fondos, **NO** ejecuta órdenes ni solicita credenciales privadas con permisos de trading.
+
+**LiqScope** es una estación de trabajo analítica de alto rendimiento para derivados cripto. Conecta de forma directa y sin intermediarios con los servidores públicos de **Binance Futures USDⓈ-M**, **Bybit Linear** y registros oficiales de la **SEC**, ofreciendo mapas de calor de liquidación continuos, gráficos interactivos de TradingView, matriz de financiación multi-exchange, escáner de más de 620 contratos con radar de ballenas, tracker institucional de ETFs Spot y notificaciones en tiempo real vía Telegram y WebSockets.
 
 ---
 
-### 1. Confirmación de Origen y Realidad de los Datos
+### 1. Módulos y Capacidades del Sistema
 
-Una de las dudas fundamentales en los mapas de calor de liquidaciones es si la información proyectada es **real**:
+```mermaid
+graph TD
+    subgraph Fuentes de Datos Oficiales
+        BIN["Binance Futures USDⓈ-M (Mark, OI, Ratio L/S, Klines)"]
+        BYB["Bybit Linear (Tickers, Funding Rates)"]
+        SEC["SEC 13F / Custodia Institucional (ETFs Spot)"]
+    end
 
-#### ¿Qué datos son 100 % REALES en vivo?
-* **Precio Mark (`mark_price`) en tiempo real:** Obtenido directamente de los servidores oficiales de producción de **Binance Futures USDⓈ-M** (`https://fapi.binance.com/fapi/v1/premiumIndex`).
-* **Interés Abierto Total (`total_open_interest_usd`):** Volumen global real oficial de contratos de futuros abiertos en el exchange en este instante (`https://fapi.binance.com/fapi/v1/openInterest`). Actualmente representa miles de millones de dólares (ej. ~95.000 BTC o ~$7.700M USD).
-* **Parámetros Oficiales de Margen (MMR):** Escalones de margen de mantenimiento basados en la normativa oficial de apalancamiento de Binance.
+    subgraph Motores Backend LiqScope
+        ENG1["Motor de Liquidaciones MMR (Tiers 1-10+)"]
+        ENG2["Agregador de 6 Horizontes (12h, 24h, 3d, 1w, 1m, 3m)"]
+        ENG3["Funding Matrix Engine (Cross-Exchange APR)"]
+        ENG4["Screener & Whale Radar (620+ Pares, OI Surge)"]
+        ENG5["ETF Tracker Service (10 BTC / 8 ETH Funds)"]
+        ENG6["Telegram Bot & WebSocket Feeder"]
+    end
 
-#### ¿Por qué las zonas de liquidación son un MODELO analítico?
-Ningún exchange de derivados del mundo (Binance, Bybit, OKX, etc.) publica las posiciones individuales ni los precios de entrada de cada usuario por secreto bancario y protección de la privacidad de sus clientes.
+    subgraph Interfaz Institucional (Terminal Heat)
+        UI1["TradingView Lightweight Charts (Velas + Sub-paneles)"]
+        UI2["Lienzo Canvas 2D (Capas Térmicas LiqScope Turbo)"]
+        UI3["Escalera DOM de Profundidad de Liquidaciones"]
+        UI4["Bento Tiles de Riesgo & Barómetro de Amplitud"]
+    end
 
-Por ello, plataformas profesionales como LiqScope, Coinglass o Kingfisher utilizan **modelos analíticos matemáticos**:
-1. Toman el **Open Interest 100 % real** del mercado.
-2. Lo distribuyen en los tramos de apalancamiento habituales del mercado (5x, 10x, 25x, 50x y 100x).
-3. Aplican las fórmulas exactas de liquidación forzada de Binance:
-   $$\text{Liquidación Long} = P_{\text{entrada}} \times \left(1 - \frac{1}{L} + \text{MMR}\right)$$
-   $$\text{Liquidación Short} = P_{\text{entrada}} \times \left(1 + \frac{1}{L} - \text{MMR}\right)$$
-4. Agrupan el volumen acumulado en escalones o "bins" de precio (ej. 50 USD) para identificar dónde se concentran las mayores bolsas de liquidez.
-
----
-
-### 2. Cómo Usar la Aplicación (Modo Súper Fácil)
-
-#### Opción A: Inicio en 1 Clic (Recomendado en Windows)
-En la carpeta raíz del proyecto, simplemente haz **doble clic en el archivo:**
-👉 **`start_dashboard.bat`**
-
-Este script ejecutará el servidor local y **abrirá automáticamente tu navegador web** en:
-🔗 **`http://localhost:8000/`**
-
-#### Opción B: Inicio desde la Terminal
-```powershell
-# Iniciar el servidor FastAPI
-py -3.12 -m uvicorn liqscope.api.app:create_app --factory --host 0.0.0.0 --port 8000
+    BIN & BYB & SEC --> ENG1 & ENG2 & ENG3 & ENG4 & ENG5 & ENG6
+    ENG1 & ENG2 & ENG3 & ENG4 & ENG5 & ENG6 --> UI1 & UI2 & UI3 & UI4
 ```
-Luego abre tu navegador en [http://localhost:8000](http://localhost:8000).
+
+#### 1.1. Mapa de Calor de Liquidaciones (LiqScope Heat & Turbo)
+* **Lienzo Gráfico TradingView (Lightweight Charts v4.2):** Velas de alta resolución (OHLCV) con paneo, zoom interactivo y sincronización automática.
+* **Capas Térmicas Canvas 2D Continuas:** Proyección de franjas de calor horizontales semi-transparentes sobre el gráfico de velas.
+* **Paletas Cromáticas Profesionales:**
+  * 🔥 **LiqScope Turbo (Por defecto):** Gradiente térmico continuo de 4 paradas (Azul Marino Profundo $\rightarrow$ Cian $\rightarrow$ Verde Esmeralda $\rightarrow$ Amarillo Neón).
+  * 🟢🔴 **Longs / Shorts:** Verde esmeralda para Long Pools y Rojo rubí para Short Pools.
+  * ⚡ **Plasma Neón:** Gradiente violeta magenta neón para pantallas OLED de alto contraste.
+* **Epicentro de Máxima Liquidación (🎯 `MAX LIQ`):** Destaque con línea discontinua dorada ámbar y resplandor pulsante en el clúster con mayor liquidez acumulada del libro.
+* **Selector de Intensidad Térmica:** Multiplicador dinámico de contraste (`1.0x`, `1.5x`, `2.0x`, `2.5x`).
+
+#### 1.2. Selector de 6 Horizontes Temporales de Acumulación
+* Permite alternar la ventana de acumulación entre: **`⏱️ 12h`**, **`⏱️ 24h`**, **`⏱️ 3d`**, **`⏱️ 1w`**, **`⏱️ 1m`** y **`⏱️ 3m`**.
+* **Fundamento Cuantitativo:** A corto plazo (12h/24h) predominan posiciones intradía con alto apalancamiento (50x–100x) muy cercanas al precio actual. En marcos amplios (1m/3m) se acumulan posiciones de swing trading institucional con apalancamientos moderados (5x–10x) y zonas de liquidación más alejadas.
+
+#### 1.3. Súper Gráficos (Velas + Sub-paneles Sincronizados)
+* **Sub-panel de Interés Abierto (Open Interest):** Oscilador en tiempo real que muestra la expansión o contracción del capital apalancado en contratos.
+* **Sub-panel de Histórico de Tasas de Financiación:** Histograma con barras bicolores (verde cuando los longs pagan a los shorts, rojo cuando los shorts pagan a los longs).
+* **Sincronización Total:** Ambos sub-paneles se desplazan y escalan en conjunto con la escala temporal del gráfico principal de velas.
+
+#### 1.4. Matriz Térmica Multi-Exchange de Tasas de Financiación
+* Comparativa en vivo entre **Binance Futures** y **Bybit Linear**.
+* Cálculo de **Tasa Promedio** y **APR Anualizado**.
+* **Temporizador Regresivo:** Cuenta atrás exacta para la siguiente liquidación de financiación (ej. cada 8 horas).
+* **Detección de Sobrecalentamiento (*Overheat*):** Alertas visuales automáticas cuando el mercado presenta apalancamiento excesivo al alza o a la baja.
+
+#### 1.5. Screener de Mercado y Radar de Ballenas (620+ Pares)
+* Escaneo paralelo de más de **620 contratos perpetuos** en tiempo real.
+* **Barómetro de Amplitud de Mercado:** Porcentaje y recuento en vivo de contratos alcistas (*Advancers*) versus bajistas (*Decliners*).
+* **Radar de Ballenas (OI Surge):** Algoritmo que detecta picos anómalos de acumulación de Open Interest respecto al volumen diario:
+  * 🐋 **Acumulación Institucional:** Fuerte subida de precio con entrada masiva de posiciones largas.
+  * 🐋 **Distribución Institucional:** Fuerte caída de precio con apertura agresiva de posiciones cortas.
+  * ⚡ **Squeeze Risk:** Ratio de apalancamiento extremo con alta probabilidad de barrida inminente.
+* **Botón de Análisis Instantáneo:** Al hacer clic en `🔍 Analizar`, carga el par automáticamente en el Heatmap y en el gráfico de TradingView.
+
+#### 1.6. Tracker Institucional de ETFs Spot (Bitcoin & Ethereum)
+* **10 Fondos de Bitcoin:** BlackRock (`IBIT`), Fidelity (`FBTC`), ARK 21Shares (`ARKB`), Bitwise (`BITB`), Grayscale (`GBTC`), Grayscale Mini (`BTC`), VanEck (`HODL`), Valkyrie (`BRRR`), Invesco Galaxy (`BTCO`), Franklin Templeton (`EZBC`).
+* **8 Fondos de Ethereum:** BlackRock (`ETHA`), Fidelity (`FETH`), Grayscale (`ETHE`), Grayscale Mini (`ETH`), Bitwise (`ETHW`), 21Shares (`CETH`), Franklin Templeton (`EZET`), Invesco Galaxy (`QETH`).
+* **Métricas Oficiales:** AUM agregado en USD, monedas físicas bajo custodia, flujo neto de la última sesión e inflow acumulado histórico.
+* **Gráfico de Barras de Flujos Netos Diarios:** Visualización de las últimas 14 sesiones bursátiles con tooltips del fondo líder.
+* **Detalle por Custodio Auditado:** Información de custodia (*Coinbase Prime, Fidelity Digital Assets, Gemini Trust*) y comisión anual de gestión (*Expense Ratio*).
+
+#### 1.7. Bot de Telegram y Streaming WebSockets
+* Notificaciones instantáneas al canal o chat privado configurado ante eventos de liquidación y cruces de muros clave.
+* Comandos interactivos `/status`, `/heatmap BTCUSDT`, etc.
+* Conexión WebSocket nativa de baja latencia en `/ws/liquidations`.
 
 ---
 
-### 3. Funcionalidades del Panel Visual ("Terminal Heat")
+### 2. Inicio Rápido y Despliegue
 
-Al abrir [http://localhost:8000](http://localhost:8000), tendrás acceso al panel gráfico institucional interactivo:
+#### Opción A: Despliegue con Docker (Recomendado en Producción)
+```bash
+# Clonar el repositorio
+git clone https://github.com/jsoto-06/LiqScope.git
+cd LiqScope
 
-1. **Auto-actualización cada 2 minutos (120 s):**
-   * Consulta automática a Binance cada **120 segundos** en segundo plano con temporizador en vivo (`Auto: 02:00 -> 01:59...`) y hora exacta de sincronización.
-   * Botón de actualización manual instantánea.
-2. **Telemetría de Cuentas L/S 100% Real de Binance:**
-   * Conexión directa a `globalLongShortAccountRatio`. Rompe la simetría artificial de 50/50 y proyecta las bolsas con los porcentajes reales del exchange (ej. 77.9% Long / 22.1% Short para ETH).
-3. **Escalera de Clústeres y Hotspots (Estilo CoinGlass):**
-   * 🔥 **Badge `MAX LIQ`:** Destaque pulsante dorado ámbar en el clúster con mayor liquidez concentrada del mercado.
-   * **Multiplicador Dominante por Fila:** Badges explícitos (`[25x]`, `[50x]`, `[100x]`) indicando qué apalancamiento domina cada escalón.
-   * **Inspector de Clúster Interactivo:** Al hacer clic en cualquier fila de la escalera o en el botón de foco de atracción, se despliega el desglose institucional (Tier MMR, Delta al Mark, Volumen USD y Nivel de Riesgo de Cascada).
-   * **Láser de Precio Mark Live:** Línea neón cian divisoria en tiempo real entre Short Pools y Long Pools.
-   * **Granularidad Óptima Automática:** Bins de `10 USD` para ETHUSDT y `50 USD` para BTCUSDT.
-4. **Navegación Multi-Pestaña Institucional:**
-   * 🔥 **Mapa de Calor:** Matriz completa, bento tiles de riesgo y zona de mayor magnetismo.
-   * 📊 **Modelo & Datos:** Protocolo de integridad y transparencia criptográfica.
-   * 📐 **Niveles MMR & Simulador:** Simulador interactivo con botón "Usar Mark Actual" y tabla de tiers de Binance.
-   * 🔔 **Alertas:** Monitor de barridas de liquidación y niveles dinámicos.
-   * 📖 **Manual de Usuario:** Guía técnica y operativa completa integrada en el panel (también disponible en [`MANUAL.md`](MANUAL.md) y [`/manual`](http://localhost:8000/manual)).
+# Construir e iniciar el contenedor en segundo plano
+docker compose up -d --build
+```
+Abre tu navegador en: **`http://localhost:8000`**
+
+#### Opción B: Inicio en 1 Clic en Windows
+En la carpeta raíz del proyecto, haz doble clic en:
+👉 **`start_dashboard.bat`** (Inicia el servidor y abre el navegador automáticamente).
+
+#### Opción C: Inicio desde Terminal Local (Python 3.12+)
+```bash
+# Crear entorno virtual e instalar dependencias
+python3 -m venv .venv
+source .venv/bin/activate  # En Windows: .venv\Scripts\activate
+pip install -e .
+
+# Iniciar el servidor ASGI
+uvicorn liqscope.api.app:create_app --factory --host 0.0.0.0 --port 8000
+```
 
 ---
 
-### 4. Configuración (`.env`)
+### 3. Configuración del Sistema (`.env`)
 
-LiqScope utiliza `pydantic-settings` para la gestión segura de configuración. Para personalizar parámetros, crea un archivo `.env` en la raíz copiando `.env.example`:
-
+Copia la plantilla de configuración:
 ```bash
 cp .env.example .env
 ```
 
-| Variable | Descripción | Valor por defecto | Opciones válidas |
-| :--- | :--- | :--- | :--- |
-| `LIQSCOPE_ENV` | Entorno de ejecución | `development` | `development`, `production`, `test`, `demo` |
-| `BINANCE_FUTURES_BASE_URL` | URL de la API de Binance Futures | `https://fapi.binance.com` | URL REST oficial o mock |
-| `SERVER_HOST` | Host para el servidor HTTP | `0.0.0.0` | IP local o `127.0.0.1` |
-| `SERVER_PORT` | Puerto de escucha | `8000` | Entero (ej. `8000`, `8080`) |
-| `LIQSCOPE_CORS_ORIGINS` | Orígenes permitidos (CORS) | `["http://localhost:5173", "http://127.0.0.1:5173"]` | Lista JSON de dominios explícitos |
-| `STORAGE_BACKEND` | Base de datos | `sqlite` | `sqlite`, `postgres` |
-| `DATABASE_PATH` | Ruta de base de datos SQLite | `liqscope.db` | Ruta a archivo local |
-
-> [!NOTE]
-> Para consultar datos en vivo de Binance **no se necesitan claves de API** (`API Key` ni `API Secret`). LiqScope únicamente utiliza los endpoints públicos de mercado de Binance Futures.
+| Variable | Descripción | Valor por Defecto |
+| :--- | :--- | :--- |
+| `LIQSCOPE_ENV` | Entorno de ejecución (`production`, `development`, `demo`, `test`) | `development` |
+| `SERVER_HOST` | Dirección de escucha de la interfaz HTTP | `0.0.0.0` |
+| `SERVER_PORT` | Puerto de escucha de la aplicación | `8000` |
+| `BINANCE_FUTURES_BASE_URL` | URL de la API de producción de Binance Futures | `https://fapi.binance.com` |
+| `TELEGRAM_BOT_TOKEN` | Token de BotFather para alertas de Telegram | *(Opcional)* |
+| `TELEGRAM_CHAT_ID` | Identificador de chat o canal de Telegram | *(Opcional)* |
+| `STORAGE_BACKEND` | Motor de almacenamiento persistente | `sqlite` |
+| `DATABASE_PATH` | Ruta del archivo de base de datos local | `liqscope.db` |
 
 ---
 
-### 5. Endpoints de la API REST
+### 4. Endpoints de la API REST (`/api/v1`)
 
-Además del panel visual, LiqScope expone una API REST canónica versionada:
-
-* **Visualizador Web:** `GET /` (Dashboard visual interactivo).
-* **Manual de Usuario:** `GET /manual` o [`MANUAL.md`](MANUAL.md) (Guía detallada de uso y telemetría).
-* **Símbolos y Bins Recomendados:** `GET /api/v1/symbols` (Retorna pares soportados y su `default_bin_size`).
-* **Mapa de Calor:** `GET /api/v1/heatmap/{symbol}`
-  * Parámetros de consulta:
-    * `min_price`: Límite inferior de precio (float).
-    * `max_price`: Límite superior de precio (float).
-    * `bin_size`: Tamaño del bin en USD (ej. `10.0` para ETH, `50.0` para BTC).
-    * `ratio_mode`: `'live'` (Binance live account ratio) o `'neutral'` (estático 50/50).
-    * `assumed_long_ratio`: Ratio personalizado (0.0 a 1.0) con prioridad sobre `ratio_mode`.
-    * `source`: `'live'` (Binance) o `'demo'` (sintético).
-  * Campos de respuesta adicionales:
-    * `dominant_leverage` y `leverages`: Identificación del apalancamiento que compone cada bin.
-    * `long_account_ratio` y `short_account_ratio`: Telemetría real de cuentas de Binance.
-    * `cached` y `data_age_sec`: Estado de caché TTL y edad de datos.
-* **Salud del Servidor:** `GET /health` (Estado `{"status": "ok", "env": "..."}`).
-* **Documentación Interactiva (Swagger UI):** `GET /docs`
-* **Especificación ReDoc:** `GET /redoc`
+| Método | Ruta | Descripción |
+| :--- | :--- | :--- |
+| `GET` | `/health` | Chequeo de estado del servicio y entorno activo |
+| `GET` | `/api/v1/heatmap/{symbol}` | Mapa de calor con bins de liquidación, MMR y 6 horizontes (`?timeframe=24h&bin_size=50`) |
+| `GET` | `/api/v1/symbols` | Listado de pares soportados con granularidad recomendada |
+| `GET` | `/api/v1/klines/{symbol}` | Velas históricas OHLCV (`?interval=1h&limit=100`) |
+| `GET` | `/api/v1/klines/{symbol}/open-interest` | Historial de Open Interest sincronizado |
+| `GET` | `/api/v1/klines/{symbol}/funding-rate` | Historial de tasas de financiación |
+| `GET` | `/api/v1/funding` | Matriz multi-exchange de tasas de financiación, APR y tiempo restante |
+| `GET` | `/api/v1/screener` | Screener de 620+ contratos con amplitud de mercado y radar de ballenas |
+| `GET` | `/api/v1/etfs` | Tracker de ETFs Spot (Bitcoin y Ethereum) con flujos diarios y AUM |
+| `GET` | `/api/v1/alerts` | Monitor de alertas y muros de liquidación activos |
+| `WS` | `/ws/liquidations` | Canal WebSocket en vivo para eventos de liquidación forzada |
 
 ---
 
-### 6. Instalación y Entorno de Desarrollo
+# 🇬🇧 English Version
 
-#### Requisitos previos
-- **Python 3.12+** instalado.
-- **Git** instalado.
-
-#### Configuración del entorno virtual
-```powershell
-# 1. Crear entorno virtual
-python -m venv .venv
-
-# 2. Activar entorno virtual
-# En Windows (PowerShell):
-.venv\Scripts\Activate.ps1
-# En Linux/macOS:
-source .venv/bin/activate
-
-# 3. Instalar dependencias en modo editable con herramientas de desarrollo
-pip install -e .[dev]
-```
-
-#### Comprobaciones de Calidad y Tests (100 % Cobertura)
-```powershell
-# 1. Formateo y linter de código (Ruff)
-py -3.12 -m ruff check src tests
-py -3.12 -m ruff format --check src tests
-
-# 2. Tipado estricto (Mypy)
-py -3.12 -m mypy src tests
-
-# 3. Suite completa de tests con reporte de cobertura (140 tests)
-py -3.12 -m pytest --cov=liqscope --cov-report=term-missing
-```
-
----
-
-<br>
-
----
-
-# 🇬🇧 English
-
-## LiqScope — Crypto Liquidation Heatmap
+## LiqScope — Institutional Crypto Liquidation Terminal & Derivatives Suite
 
 > [!IMPORTANT]
-> **Disclaimer:** Read-only analytical tool for educational and informational purposes. Does not constitute financial advice or buy/sell signals. LiqScope **DOES NOT** manage funds, **DOES NOT** execute orders, and **DOES NOT** request private keys or API keys with trading permissions.
+> **Disclaimer:** Open-source quantitative research tool for educational and informational purposes only. Not financial or trading advice. LiqScope does **NOT** custody funds, does **NOT** place orders, and does **NOT** require API keys with trading permissions.
+
+**LiqScope** is a high-performance analytics workstation for cryptocurrency derivatives. Connected directly to official public endpoints from **Binance Futures USDⓈ-M**, **Bybit Linear**, and **SEC** institutional filings, it delivers continuous liquidation heatmaps, interactive TradingView charts, multi-exchange funding matrices, a 620+ pair market screener with whale accumulation radar, a Spot ETF tracker, and real-time Telegram / WebSocket telemetry.
 
 ---
 
-### 1. Data Origin & Verification
+### Key Capabilities
 
-One of the most important questions regarding liquidation heatmaps is whether the displayed data is **real**:
-
-#### What data is 100% Live (OBSERVED)?
-* **Real-time Mark Price (`mark_price`):** Fetched directly from official **Binance Futures USDⓈ-M** production servers (`https://fapi.binance.com/fapi/v1/premiumIndex`).
-* **Total Open Interest (`total_open_interest_usd`):** Official real aggregate volume of open futures contracts on the exchange right now (`https://fapi.binance.com/fapi/v1/openInterest`). Currently represents billions of USD (e.g., ~95,000 BTC or ~$7,700M USD).
-* **Official Margin Parameters (MMR):** Maintenance Margin Rate brackets based on official Binance leverage tiers.
-
-#### Why are liquidation zones an analytical MODEL?
-No derivatives exchange in the world (Binance, Bybit, OKX, etc.) publishes individual customer orders or exact entry prices due to banking privacy and confidentiality laws.
-
-Therefore, institutional platforms such as LiqScope, Coinglass, or Kingfisher use **mathematical analytical models**:
-1. Take the **100% real Open Interest** from the market.
-2. Distribute it across the primary market leverage tiers (5x, 10x, 25x, 50x, 100x).
-3. Apply official Binance forced liquidation formulas:
-   $$\text{Long Liquidation} = P_{\text{entry}} \times \left(1 - \frac{1}{L} + \text{MMR}\right)$$
-   $$\text{Short Liquidation} = P_{\text{entry}} \times \left(1 + \frac{1}{L} - \text{MMR}\right)$$
-4. Aggregate cumulative volume into price brackets or "bins" (e.g. 50 USD) to identify where major liquidity pools concentrate.
-
----
-
-### 2. How to Use the Application (Super Easy Mode)
-
-#### Option A: 1-Click Launch (Recommended for Windows)
-In the project root folder, simply **double-click the file:**
-👉 **`start_dashboard.bat`**
-
-This script will start the local server and **automatically open your web browser** at:
-🔗 **`http://localhost:8000/`**
-
-#### Option B: Launch from Terminal
-```powershell
-# Start the FastAPI server
-py -3.12 -m uvicorn liqscope.api.app:create_app --factory --host 0.0.0.0 --port 8000
-```
-Then open your browser at [http://localhost:8000](http://localhost:8000).
+1. **TradingView Lightweight Charts (v4.2.0) + Canvas 2D Heatmap Layers:**
+   - Multi-resolution interactive candlestick charting with smooth pan and zoom.
+   - Semi-transparent continuous liquidation bands projected over candles.
+   - 3 Pro Color Palettes: `🔥 LiqScope Turbo` (default), `🟢🔴 Longs/Shorts`, and `⚡ Plasma Neon`.
+   - `MAX LIQ` epicenter indicator with animated golden aura.
+2. **6 Accumulation Lookback Horizons:**
+   - Switch effortlessly between `12h`, `24h`, `3d`, `1w`, `1m`, and `3m`.
+   - Mathematically models how high-leverage scalpers (50x-100x) dominate short timeframes while swing institutional trades (5x-10x) anchor macro horizons.
+3. **Super Charts with Synchronized Sub-Panels:**
+   - Real-time Open Interest oscillator.
+   - Historical Funding Rates histogram with positive/negative color coding.
+   - Time scales strictly synced to candlestick movements.
+4. **Cross-Exchange Funding Rates Matrix:**
+   - Live comparison between Binance Futures and Bybit Linear.
+   - Real-time Annualized APR, next funding countdown, and thermal overheat detection.
+5. **Derivatives Screener & Whale Radar (620+ Contracts):**
+   - Live Market Breadth Barometer (Advancers vs Decliners count and percentages).
+   - OI Surge anomaly detection (Whale Accumulation, Distribution, Squeeze Risk).
+   - 1-Click `🔍 Analyze` action opening the pair instantly inside the Heatmap.
+6. **Spot Bitcoin & Ethereum ETF Tracker:**
+   - Comprehensive tracking of 10 Bitcoin Spot ETFs (IBIT, FBTC, ARKB...) and 8 Ethereum Spot ETFs (ETHA, FETH...).
+   - AUM, physical coins under custody, daily net flows, historical cumulative inflows, and custodian auditing.
+7. **Telegram Bot & WebSockets:**
+   - Automated alerts on liquidation wall sweeps and interactive status commands.
+   - Native streaming at `/ws/liquidations`.
 
 ---
 
-### 3. Visual Panel Features ("Terminal Heat" Design System)
-
-Upon opening [http://localhost:8000](http://localhost:8000), you will access the interactive institutional telemetry panel:
-
-1. **Automatic 2-Minute Auto-Refresh (120 s):**
-   * Automatically polls Binance every **120 seconds** in the background with live countdown (`Auto: 02:00 -> 01:59...`) and sync timestamp.
-   * Instant manual refresh button available at any time.
-2. **100% Live Binance Long/Short Account Telemetry:**
-   * Directly connected to `globalLongShortAccountRatio`, breaking artificial 50/50 symmetry and weighting liquidation pools with real exchange statistics (e.g. 77.9% Long / 22.1% Short).
-3. **CoinGlass-Style Hotspots & Dominant Leverage Tags:**
-   * 🔥 **`MAX LIQ` Badge:** Glowing amber highlight on the primary liquidation cluster.
-   * **Dominant Leverage Badges:** Explicit labels (`[25x]`, `[50x]`, `[100x]`) for each price ladder row.
-   * **Interactive Cluster Inspector:** Click any ladder row or the epicenter card to inspect Tier MMR, Delta to Mark, USD volume, and Cascade Risk.
-   * **Dynamic Optimal Bins:** Automatically selects `10 USD` for ETHUSDT and `50 USD` for BTCUSDT.
-4. **Multi-Tab Institutional Navigation:**
-   * 🔥 **Heatmap Telemetry:** Proportional depth ladder, risk bento tiles, and magnetic attraction zone.
-   * 📊 **Model & Data:** Cryptographic transparency protocol and verified formula documentation.
-   * 📐 **MMR Tiers & Simulator:** Interactive calculator with "Use Current Mark" button and Binance tier brackets.
-   * 🔔 **Alerts & Telemetry Radar:** Real-time liquidation wall and cascade risk monitor.
-   * 📖 **User Manual:** Complete guide embedded directly in the dashboard, at [`MANUAL.md`](MANUAL.md), and at [`/manual`](http://localhost:8000/manual).
-
----
-
-### 4. Configuration (`.env`)
-
-LiqScope uses `pydantic-settings` for robust, type-safe configuration. Copy `.env.example` to `.env` in the root folder:
+### Quick Start with Docker
 
 ```bash
-cp .env.example .env
+# Clone the repository
+git clone https://github.com/jsoto-06/LiqScope.git
+cd LiqScope
+
+# Build and run with Docker Compose
+docker compose up -d --build
 ```
-
-| Variable | Description | Default | Valid Options |
-| :--- | :--- | :--- | :--- |
-| `LIQSCOPE_ENV` | Runtime environment | `development` | `development`, `production`, `test`, `demo` |
-| `BINANCE_FUTURES_BASE_URL` | Binance Futures API Base URL | `https://fapi.binance.com` | Official REST URL or mock |
-| `SERVER_HOST` | HTTP server host binding | `0.0.0.0` | Local IP or `127.0.0.1` |
-| `SERVER_PORT` | Listening port | `8000` | Integer (e.g. `8000`, `8080`) |
-| `LIQSCOPE_CORS_ORIGINS` | Allowed CORS origins | `["http://localhost:5173", "http://127.0.0.1:5173"]` | JSON list of explicit domains |
-| `STORAGE_BACKEND` | Storage engine | `sqlite` | `sqlite`, `postgres` |
-| `DATABASE_PATH` | SQLite database file path | `liqscope.db` | Local file path |
-
-> [!NOTE]
-> **No API keys or secrets are required** to fetch live Binance data. LiqScope exclusively queries Binance Futures public market data endpoints.
+Access the terminal at: **`http://localhost:8000`**
 
 ---
 
-### 5. REST API Endpoints
-
-In addition to the visual dashboard, LiqScope provides a complete canonical versioned REST API:
-
-* **Web Visualizer:** `GET /` (Interactive visual dashboard).
-* **User Manual:** `GET /manual` or [`MANUAL.md`](MANUAL.md) (Complete telemetry and usage manual).
-* **Supported Symbols & Recommended Bins:** `GET /api/v1/symbols` (Returns supported symbols and their `default_bin_size`).
-* **Liquidation Heatmap:** `GET /api/v1/heatmap/{symbol}`
-  * Query parameters:
-    * `min_price`: Lower price boundary (float).
-    * `max_price`: Upper price boundary (float).
-    * `bin_size`: Price bin step in USD (e.g. `10.0` for ETH, `50.0` for BTC).
-    * `ratio_mode`: `'live'` (Binance live account ratio) or `'neutral'` (static 50/50).
-    * `assumed_long_ratio`: Custom ratio (0.0 to 1.0) with precedence over `ratio_mode`.
-    * `source`: `'live'` (Binance) or `'demo'` (synthetic).
-  * Extended response fields:
-    * `dominant_leverage` & `leverages`: Leverage distribution breakdown for each bin.
-    * `long_account_ratio` & `short_account_ratio`: Live Binance account telemetry.
-    * `cached` & `data_age_sec`: TTL cache status and data age.
-* **Service Health:** `GET /health` (Status `{"status": "ok", "env": "..."}`).
-* **Interactive Documentation (Swagger UI):** `GET /docs`
-* **ReDoc Specification:** `GET /redoc`
-
----
-
-### 6. Installation & Development Environment
-
-#### Prerequisites
-- **Python 3.12+** installed.
-- **Git** installed.
-
-#### Virtual Environment Setup
-```powershell
-# 1. Create virtual environment
-python -m venv .venv
-
-# 2. Activate virtual environment
-# Windows (PowerShell):
-.venv\Scripts\Activate.ps1
-# Linux/macOS:
-source .venv/bin/activate
-
-# 3. Install dependencies in editable mode with development tools
-pip install -e .[dev]
-```
-
-#### Quality Verification & Tests (100% Coverage)
-```powershell
-# 1. Formatting and code linting (Ruff)
-py -3.12 -m ruff check src tests
-py -3.12 -m ruff format --check src tests
-
-# 2. Strict static type checking (Mypy)
-py -3.12 -m mypy src tests
-
-# 3. Complete test suite with coverage report (140 tests)
-py -3.12 -m pytest --cov=liqscope --cov-report=term-missing
-```
-
----
-
-### 7. Codebase Structure
-
-```text
-src/liqscope/
-├── api/                  # FastAPI app, REST routes, and interactive HTML dashboard
-│   ├── app.py            # FastAPI factory and middleware setup
-│   ├── dashboard.py      # Terminal Heat dashboard template with 2-min auto-refresh
-│   └── routes/heatmap.py # Analytical endpoint GET /api/v1/heatmap/{symbol}
-├── connectors/           # Data connectors (Binance Futures REST & WebSockets)
-│   ├── binance_rest.py   # aiohttp client for fapi.binance.com
-│   └── base.py           # DataSource abstract protocols
-├── engine/               # Financial modeling and liquidation mathematics
-│   ├── formulas.py       # Liquidation formulas (Long/Short) and MMR logic
-│   ├── tiers.py          # Leverage brackets (5x to 100x)
-│   └── aggregator.py     # Price binning and coverage calculation
-├── models/               # Validated Pydantic v2 domain models
-├── storage/              # SQLite / PostgreSQL decoupled repository layer
-└── config.py             # Centralized settings via pydantic-settings
-```
+### License
+Released under the **MIT License**. Built for transparency, quantitative research, and institutional execution.
